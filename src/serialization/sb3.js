@@ -75,7 +75,11 @@ const parseScratchObject = function (object, runtime) {
             rotationCenterX: costumeSource.rotationCenterX,
             rotationCenterY: costumeSource.rotationCenterY
         };
-        const costumeMd5 = `${costumeSource.assetId}.${costumeSource.dataFormat}`;
+        const dataFormat =
+            costumeSource.dataFormat ||
+            (costumeSource.assetType && costumeSource.assetType.runtimeFormat) || // older format
+            'png'; // if all else fails, guess that it might be a PNG
+        const costumeMd5 = `${costumeSource.assetId}.${dataFormat}`;
         return loadCostume(costumeMd5, costume, runtime);
     });
     // Sounds from JSON
@@ -98,11 +102,13 @@ const parseScratchObject = function (object, runtime) {
     if (object.hasOwnProperty('variables')) {
         for (let j = 0; j < object.variables.length; j++) {
             const variable = object.variables[j];
-            target.variables[variable.name] = new Variable(
+            const newVariable = new Variable(
+                variable.id,
                 variable.name,
                 variable.value,
                 variable.isPersistent
             );
+            target.variables[newVariable.id] = newVariable;
         }
     }
     if (object.hasOwnProperty('lists')) {

@@ -1,19 +1,37 @@
 const path = require('path');
 const test = require('tap').test;
-const attachTestStorage = require('../fixtures/attach-test-storage');
-const extract = require('../fixtures/extract');
+
+const Scratch3PenBlocks = require('../../src/blocks/scratch3_pen');
 const VirtualMachine = require('../../src/index');
+
+const makeTestStorage = require('../fixtures/make-test-storage');
+const extract = require('../fixtures/extract');
 
 const uri = path.resolve(__dirname, '../fixtures/pen.sb2');
 const project = extract(uri);
 
 test('pen', t => {
     const vm = new VirtualMachine();
-    attachTestStorage(vm);
+    vm.attachStorage(makeTestStorage());
 
     // Evaluate playground data and exit
     vm.on('playgroundData', () => {
         // @todo Additional tests
+
+        const catSprite = vm.runtime.targets[1].sprite;
+        const [originalCat, cloneCat] = catSprite.clones;
+        t.notStrictEqual(originalCat, cloneCat);
+
+        /** @type {PenState} */
+        const originalPenState = originalCat.getCustomState(Scratch3PenBlocks.STATE_KEY);
+
+        /** @type {PenState} */
+        const clonePenState = cloneCat.getCustomState(Scratch3PenBlocks.STATE_KEY);
+
+        t.notStrictEqual(originalPenState, clonePenState);
+        t.equal(originalPenState.penAttributes.diameter, 51);
+        t.equal(clonePenState.penAttributes.diameter, 42);
+
         t.end();
         process.nextTick(process.exit);
     });
