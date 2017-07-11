@@ -1,5 +1,6 @@
 const Cast = require('../util/cast');
 const log = require('../util/log');
+const Clone = require('../util/clone');
 
 class Scratch3SpeechBlocks {
 
@@ -34,12 +35,6 @@ class Scratch3SpeechBlocks {
         this.latest_speech = '';
 
         /**
-         * The name of the selected voice for speech synthesis.
-         * @type {String}
-         */
-        this.current_voice_name = 'default';
-
-        /**
          * The current speech synthesis utterance object.
          * Storing the utterance prevents a bug in which garbage collection causes the onend event to fail.
          * @type {String}
@@ -47,6 +42,38 @@ class Scratch3SpeechBlocks {
         this.current_utterance = null;
 
         this.runtime.HACK_SpeechBlocks = this;
+    }
+
+    /**
+     * The key to load & store a target's state related to the speech extension.
+     * @type {string}
+     */
+    static get STATE_KEY () {
+        return 'Scratch.speech';
+    }
+
+    /**
+     * The default speech-related state, to be used when a target has no existing speech state.
+     * @type {SpeechState}
+     */
+    static get DEFAULT_SPEECH_STATE () {
+        return {
+            voiceName: 'default'
+        };
+    }
+
+    /**
+     * @param {Target} target - collect speech state for this target.
+     * @returns {SpeechState} the mutable speech state associated with that target. This will be created if necessary.
+     * @private
+     */
+    _getSpeechState (target) {
+        let speechState = target.getCustomState(Scratch3SpeechBlocks.STATE_KEY);
+        if (!speechState) {
+            speechState = Clone.simple(Scratch3SpeechBlocks.DEFAULT_SPEECH_STATE);
+            target.setCustomState(Scratch3SpeechBlocks.STATE_KEY, speechState);
+        }
+        return speechState;
     }
 
     /**
@@ -151,13 +178,14 @@ class Scratch3SpeechBlocks {
 
     /* //////////////// Speech Synthesis ///////////////// */
 
-    setVoice (args) {
+    setVoice (args, util) {
+        const speechState = this._getSpeechState(util.target);
         if (args.VOICE === 'Random') {
             const voices = this.getVoices();
             const index = Math.floor(Math.random() * voices.length);
-            this.current_voice_name = voices[index].name;
+            speechState.voiceName = voices[index].name;
         } else {
-            this.current_voice_name = args.VOICE;
+            speechState.voiceName = args.VOICE;
         }
     }
 
@@ -182,16 +210,17 @@ class Scratch3SpeechBlocks {
         return availableVoices;
     }
 
-    speak (args) {
+    speak (args, util) {
         const input = Cast.toString(args.STRING).toLowerCase();
 
         this.stopSpeaking();
 
         this.current_utterance = new SpeechSynthesisUtterance(input);
 
+        const speechState = this._getSpeechState(util.target);
         const voices = this.getVoices();
         for (let i = 0; i < voices.length; i++) {
-            if (this.current_voice_name === voices[i].name) {
+            if (speechState.voiceName === voices[i].name) {
                 this.current_utterance.voice = voices[i];
             }
         }
