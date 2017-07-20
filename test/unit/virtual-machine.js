@@ -109,3 +109,80 @@ test('renameSprite does not increment when renaming to the same name', t => {
     t.equal(vm.runtime.targets[0].sprite.name, 'this name');
     t.end();
 });
+
+test('renameSound sets the sound name', t => {
+    const vm = new VirtualMachine();
+    vm.editingTarget = {
+        sprite: {
+            sounds: [{name: 'first'}, {name: 'second'}]
+        }
+    };
+    vm.renameSound(0, 'hello');
+    t.equal(vm.editingTarget.sprite.sounds[0].name, 'hello');
+    t.equal(vm.editingTarget.sprite.sounds[1].name, 'second');
+    // Make sure renaming to same name doesn't increment
+    vm.renameSound(0, 'hello');
+    t.equal(vm.editingTarget.sprite.sounds[0].name, 'hello');
+    // But renaming to used name does increment
+    vm.renameSound(1, 'hello');
+    t.equal(vm.editingTarget.sprite.sounds[1].name, 'hello2');
+    t.end();
+});
+
+test('renameCostume sets the costume name', t => {
+    const vm = new VirtualMachine();
+    vm.editingTarget = {
+        sprite: {
+            costumes: [{name: 'first'}, {name: 'second'}]
+        }
+    };
+    vm.renameCostume(0, 'hello');
+    t.equal(vm.editingTarget.sprite.costumes[0].name, 'hello');
+    t.equal(vm.editingTarget.sprite.costumes[1].name, 'second');
+    // Make sure renaming to same name doesn't increment
+    vm.renameCostume(0, 'hello');
+    t.equal(vm.editingTarget.sprite.costumes[0].name, 'hello');
+    // But renaming to used name does increment
+    vm.renameCostume(1, 'hello');
+    t.equal(vm.editingTarget.sprite.costumes[1].name, 'hello2');
+    t.end();
+});
+
+test('emitWorkspaceUpdate', t => {
+    const vm = new VirtualMachine();
+    vm.runtime.targets = [
+        {
+            isStage: true,
+            variables: {
+                global: {
+                    toXML: () => 'global'
+                }
+            }
+        }, {
+            variables: {
+                unused: {
+                    toXML: () => 'unused'
+                }
+            }
+        }, {
+            variables: {
+                local: {
+                    toXML: () => 'local'
+                }
+            },
+            blocks: {
+                toXML: () => 'blocks'
+            }
+        }
+    ];
+    vm.editingTarget = vm.runtime.targets[2];
+
+    let xml = null;
+    vm.emit = (event, data) => (xml = data.xml);
+    vm.emitWorkspaceUpdate();
+    t.notEqual(xml.indexOf('global'), -1);
+    t.notEqual(xml.indexOf('local'), -1);
+    t.equal(xml.indexOf('unused'), -1);
+    t.notEqual(xml.indexOf('blocks'), -1);
+    t.end();
+});

@@ -300,6 +300,19 @@ class VirtualMachine extends EventEmitter {
     }
 
     /**
+     * Rename a costume on the current editing target.
+     * @param {int} costumeIndex - the index of the costume to be renamed.
+     * @param {string} newName - the desired new name of the costume (will be modified if already in use).
+     */
+    renameCostume (costumeIndex, newName) {
+        const usedNames = this.editingTarget.sprite.costumes
+            .filter((costume, index) => costumeIndex !== index)
+            .map(costume => costume.name);
+        this.editingTarget.sprite.costumes[costumeIndex].name = StringUtil.unusedName(newName, usedNames);
+        this.emitTargetsUpdate();
+    }
+
+    /**
      * Delete a costume from the current editing target.
      * @param {int} costumeIndex - the index of the costume to be removed.
      */
@@ -317,6 +330,19 @@ class VirtualMachine extends EventEmitter {
             this.editingTarget.sprite.sounds.push(soundObject);
             this.emitTargetsUpdate();
         });
+    }
+
+    /**
+     * Rename a sound on the current editing target.
+     * @param {int} soundIndex - the index of the sound to be renamed.
+     * @param {string} newName - the desired new name of the sound (will be modified if already in use).
+     */
+    renameSound (soundIndex, newName) {
+        const usedNames = this.editingTarget.sprite.sounds
+            .filter((sound, index) => soundIndex !== index)
+            .map(sound => sound.name);
+        this.editingTarget.sprite.sounds[soundIndex].name = StringUtil.unusedName(newName, usedNames);
+        this.emitTargetsUpdate();
     }
 
     /**
@@ -531,8 +557,11 @@ class VirtualMachine extends EventEmitter {
      * of the current editing target's blocks.
      */
     emitWorkspaceUpdate () {
-        // @todo Include variables scoped to editing target also.
-        const variableMap = this.runtime.getTargetForStage().variables;
+        const variableMap = Object.assign({},
+            this.runtime.getTargetForStage().variables,
+            this.editingTarget.variables
+        );
+
         const variables = Object.keys(variableMap).map(k => variableMap[k]);
 
         const xmlString = `<xml xmlns="http://www.w3.org/1999/xhtml">
