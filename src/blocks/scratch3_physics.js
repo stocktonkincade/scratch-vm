@@ -16,33 +16,24 @@ class Scratch3PhysicsBlocks {
 
         // module aliases
         this.Engine = Matter.Engine;
-        // this.Render = Matter.Render;
         this.World = Matter.World;
         this.Bodies = Matter.Bodies;
 
         // create an engine
         this.engine = this.Engine.create();
 
-        // create a renderer
-        // var render = this.Render.create({
-        //     element: document.body,
-        //     engine: this.engine
-        // });
-        //
+        // gravity is negative because scratch coords (y goes up) are inverted from matter coords (y goes down)
         this.engine.world.gravity.y = -1;
 
-        this.ground = this.Bodies.rectangle(-240, -130, 480, 100, { isStatic: true });
+        // add the ground and wallsto the world
+        const wallSize = 500;
+        this.ground = this.Bodies.rectangle(0, -180 - wallSize / 2, wallSize, wallSize, { isStatic: true });
+        this.leftWall = this.Bodies.rectangle(-240 - wallSize / 2, 0, wallSize, wallSize, { isStatic: true });
+        this.rightWall = this.Bodies.rectangle(240 + wallSize / 2, 0, wallSize, wallSize, { isStatic: true });
+        this.World.add(this.engine.world, [this.ground, this.leftWall, this.rightWall]);
 
-        this.bodies = [];
-
-        // add all of the bodies to the world
-        this.World.add(this.engine.world, this.ground);
-
-        // run the engine
-        // Engine.run(engine);
-
-        // run the renderer
-        // this.Render.run(this.render);
+        // a map of scratch target ids to matter bodies
+        this.bodies = new Map();
     }
 
     /**
@@ -55,7 +46,7 @@ class Scratch3PhysicsBlocks {
 
     /**
      * The default physics-related state, to be used when a target has no existing physics state.
-     * @type {SpeechState}
+     * @type {PhysicsState}
      */
     static get DEFAULT_PHYSICS_STATE () {
         return {
@@ -82,45 +73,56 @@ class Scratch3PhysicsBlocks {
     }
 
     step () {
-        // todo:
-        // for each target
-        // if it has no body, create one, and add it using custom state
-        // set position of body to position of sprite (coordinate systems!)
+        // for each target, if it has no body, create one, and add it to its custom state
         for (let i=1; i<this.runtime.targets.length; i++) {
             const target = this.runtime.targets[i];
             const state = this._getPhysicsState(target);
             if (!state.body) {
+                const bounds = target.getBounds();
+                const width = bounds.right - bounds.left;
+                const height = bounds.top - bounds.bottom;
                 const options = {
                     restitution: 0.8
                 };
-                console.log(target);
-                const body = this.Bodies.rectangle(0, 0, 50, 50, options );
-                this.bodies.push(body);
+                const body = this.Bodies.rectangle(target.x, target.y, width, height, options );
+                this.World.add(this.engine.world, body);
                 state.body = body;
+                this.bodies.set(target.id, body);
             }
         }
 
-        /*
+        // remove any bodies that do not have targets associated with them
+        for (const [id, body] of this.bodies) {
+            const target = this.runtime.getTargetById(id);
+            if (!target) {
+                this.World.remove(this.engine.world, body);
+                this.bodies.delete(id);
+                console.log(this.bodies);
+            }
+        }
 
-        // check the position of each target and update it in the engine
-        // in case it has been moved by a motion block or a drag
+        // If a target has been moved by a motion block or a drag
+        // update it in the engine and zero its velocity
         for (let i=1; i<this.runtime.targets.length; i++) {
             const target = this.runtime.targets[i];
+            const state = this._getPhysicsState(target);
+            const body = state.body;
             const updatedPos = {x:target.x, y:target.y};
-            // todo: check if the position has actually changed before doing this
-            // and if so, zero out the velocities
-            Matter.Body.setPosition(this.boxes[i], updatedPos);
+            if ((updatedPos.x !== body.position.x) || (updatedPos.x !== body.position.x)) {
+                Matter.Body.setPosition(body, updatedPos);
+                Matter.Body.setVelocity(body, {x:0, y:0});
+            }
         }
         // update the physics engine
         this.Engine.update(this.engine, 1000/60);
+
         // update the positions of the targets
         for (let i=1; i<this.runtime.targets.length; i++) {
             const target = this.runtime.targets[i];
-            target.setXY(this.boxes[i].position.x, this.boxes[i].position.y);
+            const state = this._getPhysicsState(target);
+            const body = state.body;
+            target.setXY(body.position.x, body.position.y);
         }
-
-        */
-
         window.requestAnimationFrame(this.step.bind(this));
     }
 
