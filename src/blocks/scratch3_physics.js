@@ -18,6 +18,7 @@ class Scratch3PhysicsBlocks {
         this.Engine = Matter.Engine;
         this.World = Matter.World;
         this.Bodies = Matter.Bodies;
+        this.Events = Matter.Events;
 
         // create an engine
         this.engine = this.Engine.create();
@@ -25,7 +26,7 @@ class Scratch3PhysicsBlocks {
         // gravity is negative because scratch coords (y goes up) are inverted from matter coords (y goes down)
         this.engine.world.gravity.y = -1;
 
-        // add the ground and wallsto the world
+        // add the ground and walls to the world
         const wallSize = 500;
         this.ground = this.Bodies.rectangle(0, -180 - wallSize / 2, wallSize, wallSize, { isStatic: true });
         this.leftWall = this.Bodies.rectangle(-240 - wallSize / 2, 0, wallSize, wallSize, { isStatic: true });
@@ -34,6 +35,22 @@ class Scratch3PhysicsBlocks {
 
         // a map of scratch target ids to matter bodies
         this.bodies = new Map();
+
+        // fire events on collision between any pair of bodies
+        this.Events.on(this.engine, 'collisionStart', function(event) {
+            // for each pair, look up each body in this.bodies
+            // trigger the collide hat for the target
+            const pairs = event.pairs;
+            for (let i = 0; i < pairs.length; i++) {
+                const pair = pairs[i];
+                for (const [id, body] of this.bodies) {
+                    if ((pair.bodyA.id === body.id) || (pair.bodyB.id === body.id)) {
+                        const target = this.runtime.getTargetById(id);
+                        this.runtime.startHats('physics_whenCollide', null, target);
+                    }
+                }
+            }
+        }.bind(this));
     }
 
     /**
@@ -97,7 +114,6 @@ class Scratch3PhysicsBlocks {
             if (!target) {
                 this.World.remove(this.engine.world, body);
                 this.bodies.delete(id);
-                console.log(this.bodies);
             }
         }
 
@@ -113,6 +129,10 @@ class Scratch3PhysicsBlocks {
                 Matter.Body.setVelocity(body, {x:0, y:0});
             }
         }
+
+        // to do: check if target's bounds have changed and update engine
+        // (in case of rotation, costume change, size change)
+
         // update the physics engine
         this.Engine.update(this.engine, 1000/60);
 
@@ -132,17 +152,31 @@ class Scratch3PhysicsBlocks {
      */
     getPrimitives () {
         return {
-            // speech_whenihear: this.hatWhenIHear,
+            physics_pushXY: this.pushXY,
+            physics_setGravity: this.setGravity
         };
     }
 
     getHats () {
-        // return {
-            // speech_whenihear: {
-            //     restartExistingThreads: false,
-            //     edgeActivated: true
-            // }
-        // };
+        return {
+            physics_whenCollide: {
+                restartExistingThreads: true,
+                edgeActivated: false
+            }
+        };
+    }
+
+    pushXY (args, util) {
+        const state = this._getPhysicsState(util.target);
+        const scale = 0.01;
+        const x = Cast.toNumber(args.X) * scale;
+        const y = Cast.toNumber(args.Y) * scale;
+        Matter.Body.applyForce(state.body, state.body.position, {x:x, y:y});
+    }
+
+    setGravity (args) {
+        const g = -1 * Cast.toNumber(args.GRAVITY) / 100;
+        this.engine.world.gravity.y = g;
     }
 }
 
