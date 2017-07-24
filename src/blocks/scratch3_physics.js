@@ -51,6 +51,19 @@ class Scratch3PhysicsBlocks {
                 }
             }
         }.bind(this));
+
+        // create a renderer (for debugging)
+        // var render = Matter.Render.create({
+        //     element: document.body,
+        //     engine: this.engine,
+        //     options: {
+        //         width: 480*2,
+        //         height: 360*2,
+        //         pixelRatio: 2
+        //     }
+        // });
+        // Matter.Render.lookAt(render, [this.ground, this.leftWall, this.rightWall]);
+        // Matter.Render.run(render);
     }
 
     /**
