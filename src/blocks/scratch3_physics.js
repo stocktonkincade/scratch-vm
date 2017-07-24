@@ -1,5 +1,4 @@
 const Cast = require('../util/cast');
-const log = require('../util/log');
 const Clone = require('../util/clone');
 const Matter = require('matter-js');
 
@@ -27,10 +26,11 @@ class Scratch3PhysicsBlocks {
         this.engine.world.gravity.y = -1;
 
         // add the ground and walls to the world
+        // todo: make the walls much taller than the stage, so you can't jump up and over them
         const wallSize = 500;
-        this.ground = this.Bodies.rectangle(0, -180 - wallSize / 2, wallSize, wallSize, { isStatic: true });
-        this.leftWall = this.Bodies.rectangle(-240 - wallSize / 2, 0, wallSize, wallSize, { isStatic: true });
-        this.rightWall = this.Bodies.rectangle(240 + wallSize / 2, 0, wallSize, wallSize, { isStatic: true });
+        this.ground = this.Bodies.rectangle(0, (-180 - wallSize) / 2, wallSize, wallSize, {isStatic: true});
+        this.leftWall = this.Bodies.rectangle((-240 - wallSize) / 2, 0, wallSize, wallSize, {isStatic: true});
+        this.rightWall = this.Bodies.rectangle((240 + wallSize) / 2, 0, wallSize, wallSize, {isStatic: true});
         this.World.add(this.engine.world, [this.ground, this.leftWall, this.rightWall]);
 
         // a map of scratch target ids to matter bodies
@@ -104,7 +104,7 @@ class Scratch3PhysicsBlocks {
 
     step () {
         // for each target, if it has no body, create one, and add it to its custom state
-        for (let i=1; i<this.runtime.targets.length; i++) {
+        for (let i = 1; i < this.runtime.targets.length; i++) {
             const target = this.runtime.targets[i];
             const state = this._getPhysicsState(target);
             if (!state.body) {
@@ -114,7 +114,7 @@ class Scratch3PhysicsBlocks {
                 const options = {
                     restitution: 0.8
                 };
-                const body = this.Bodies.rectangle(target.x, target.y, width, height, options );
+                const body = this.Bodies.rectangle(target.x, target.y, width, height, options);
                 this.World.add(this.engine.world, body);
                 state.body = body;
                 this.bodies.set(target.id, body);
@@ -132,25 +132,25 @@ class Scratch3PhysicsBlocks {
 
         // If a target has been moved by a motion block or a drag
         // update it in the engine and zero its velocity
-        for (let i=1; i<this.runtime.targets.length; i++) {
+        for (let i = 1; i < this.runtime.targets.length; i++) {
             const target = this.runtime.targets[i];
             const state = this._getPhysicsState(target);
             const body = state.body;
-            const updatedPos = {x:target.x, y:target.y};
+            const updatedPos = {x: target.x, y: target.y};
             if ((updatedPos.x !== body.position.x) || (updatedPos.x !== body.position.x)) {
                 Matter.Body.setPosition(body, updatedPos);
-                Matter.Body.setVelocity(body, {x:0, y:0});
+                Matter.Body.setVelocity(body, {x: 0, y: 0});
             }
         }
 
-        // to do: check if target's bounds have changed and update engine
+        // todo: check if target's bounds have changed and update engine
         // (in case of rotation, costume change, size change)
 
         // update the physics engine
-        this.Engine.update(this.engine, 1000/60);
+        this.Engine.update(this.engine, 1000 / 60);
 
         // update the positions of the targets
-        for (let i=1; i<this.runtime.targets.length; i++) {
+        for (let i = 1; i < this.runtime.targets.length; i++) {
             const target = this.runtime.targets[i];
             const state = this._getPhysicsState(target);
             const body = state.body;
@@ -187,7 +187,7 @@ class Scratch3PhysicsBlocks {
         const scale = 0.01;
         const x = Cast.toNumber(args.X) * scale;
         const y = Cast.toNumber(args.Y) * scale;
-        Matter.Body.applyForce(state.body, state.body.position, {x:x, y:y});
+        Matter.Body.applyForce(state.body, state.body.position, {x: x, y: y});
     }
 
     setGravity (args) {
