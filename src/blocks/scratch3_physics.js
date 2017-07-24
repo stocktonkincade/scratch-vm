@@ -28,9 +28,9 @@ class Scratch3PhysicsBlocks {
         // add the ground and walls to the world
         // todo: make the walls much taller than the stage, so you can't jump up and over them
         const wallSize = 500;
-        this.ground = this.Bodies.rectangle(0, (-180 - wallSize) / 2, wallSize, wallSize, {isStatic: true});
-        this.leftWall = this.Bodies.rectangle((-240 - wallSize) / 2, 0, wallSize, wallSize, {isStatic: true});
-        this.rightWall = this.Bodies.rectangle((240 + wallSize) / 2, 0, wallSize, wallSize, {isStatic: true});
+        this.ground = this.Bodies.rectangle(0, -180 - (wallSize / 2), wallSize, wallSize, {isStatic: true});
+        this.leftWall = this.Bodies.rectangle(-240 - (wallSize / 2), 0, wallSize, wallSize, {isStatic: true});
+        this.rightWall = this.Bodies.rectangle(240 + (wallSize / 2), 0, wallSize, wallSize, {isStatic: true});
         this.World.add(this.engine.world, [this.ground, this.leftWall, this.rightWall]);
 
         // a map of scratch target ids to matter bodies
