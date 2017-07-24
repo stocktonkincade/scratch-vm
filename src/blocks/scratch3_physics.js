@@ -138,7 +138,7 @@ class Scratch3PhysicsBlocks {
             const state = this._getPhysicsState(target);
             const body = state.body;
             const updatedPos = {x: target.x, y: target.y};
-            if ((updatedPos.x !== body.position.x) || (updatedPos.x !== body.position.x)) {
+            if ((updatedPos.x !== body.position.x) || (updatedPos.y !== body.position.y)) {
                 Matter.Body.setPosition(body, updatedPos);
                 Matter.Body.setVelocity(body, {x: 0, y: 0});
             }
