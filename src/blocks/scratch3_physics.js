@@ -38,7 +38,7 @@ class Scratch3PhysicsBlocks {
         this.bodies = new Map();
 
         // fire events on collision between any pair of bodies
-        this.Events.on(this.engine, 'collisionStart', function(event) {
+        this.Events.on(this.engine, 'collisionStart', event => {
             // for each pair, look up each body in this.bodies
             // trigger the collide hat for the target
             const pairs = event.pairs;
@@ -51,7 +51,7 @@ class Scratch3PhysicsBlocks {
                     }
                 }
             }
-        }.bind(this));
+        });
 
         this.showDebugRenderer();
     }
