@@ -31,7 +31,8 @@ class Scratch3PhysicsBlocks {
         this.ground = this.Bodies.rectangle(0, -180 - (wallSize / 2), wallSize, wallSize, {isStatic: true});
         this.leftWall = this.Bodies.rectangle(-240 - (wallSize / 2), 0, wallSize, wallSize, {isStatic: true});
         this.rightWall = this.Bodies.rectangle(240 + (wallSize / 2), 0, wallSize, wallSize, {isStatic: true});
-        this.World.add(this.engine.world, [this.ground, this.leftWall, this.rightWall]);
+        this.topWall = this.Bodies.rectangle(0, 180 + (wallSize / 2), wallSize, wallSize, {isStatic: true});
+        this.World.add(this.engine.world, [this.ground, this.leftWall, this.rightWall, this.topWall]);
 
         // a map of scratch target ids to matter bodies
         this.bodies = new Map();
