@@ -155,6 +155,9 @@ class Scratch3PhysicsBlocks {
             const state = this._getPhysicsState(target);
             const body = state.body;
             target.setXY(body.position.x, body.position.y);
+            const bodyDegrees = body.angle * 180 / Math.PI;
+            const scratchAngle = (360 - bodyDegrees) + 90;
+            target.setDirection(scratchAngle);
         }
         window.requestAnimationFrame(this.step.bind(this));
     }
