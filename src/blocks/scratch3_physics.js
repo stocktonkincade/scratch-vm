@@ -1,5 +1,8 @@
 const Cast = require('../util/cast');
 const Clone = require('../util/clone');
+
+import decomp from 'poly-decomp';
+window.decomp = decomp;
 const Matter = require('matter-js');
 
 class Scratch3PhysicsBlocks {
@@ -53,7 +56,7 @@ class Scratch3PhysicsBlocks {
             }
         });
 
-        this.showDebugRenderer();
+        // this.showDebugRenderer();
     }
 
     showDebugRenderer () {
@@ -119,7 +122,20 @@ class Scratch3PhysicsBlocks {
                 const options = {
                     restitution: 0.8
                 };
-                const body = this.Bodies.rectangle(target.x, target.y, width, height, options);
+                const hull = this.runtime.renderer._getConvexHullPointsForDrawable(target.drawableID);
+                const vertices = hull.map(p => {
+                    return {x: p[0], y: p[1]};
+                });
+                // debugger;
+                const body = this.Bodies.fromVertices(target.x, target.y, vertices, options);
+                // console.log(bounds);
+                // console.log(vertices);
+                // console.log(body);
+                // const body = this.Bodies.rectangle(target.x, target.y, width, height, options);
+                // Matter.Body.setVertices(body, vertices);
+                // Matter.Body.translate(body, Matter.Vector.sub(body.bounds.max, body.position));
+
+
                 this.World.add(this.engine.world, body);
                 state.body = body;
                 this.bodies.set(target.id, body);
@@ -148,7 +164,7 @@ class Scratch3PhysicsBlocks {
             }
         }
 
-        // todo: check if target's bounds have changed and update engine
+        // todo: check if target's bounds and angle have changed and update engine
         // (in case of rotation, costume change, size change)
 
         // update the physics engine
