@@ -123,19 +123,16 @@ class Scratch3PhysicsBlocks {
                     restitution: 0.8
                 };
                 const hull = this.runtime.renderer._getConvexHullPointsForDrawable(target.drawableID);
-                const vertices = hull.map(p => {
-                    return {x: p[0], y: p[1]};
-                });
-                // debugger;
-                const body = this.Bodies.fromVertices(target.x, target.y, vertices, options);
-                // console.log(bounds);
-                // console.log(vertices);
-                // console.log(body);
-                // const body = this.Bodies.rectangle(target.x, target.y, width, height, options);
-                // Matter.Body.setVertices(body, vertices);
-                // Matter.Body.translate(body, Matter.Vector.sub(body.bounds.max, body.position));
-
-
+                let body;
+                if (hull.length > 0) {
+                    let vertices = hull.map(p => {
+                        return {x: p[0], y: p[1]};
+                    });
+                    body = this.Bodies.fromVertices(target.x, target.y, vertices, options);
+                    console.log(vertices);
+                } else {
+                    body = this.Bodies.rectangle(target.x, target.y, width, height, options);
+                }
                 this.World.add(this.engine.world, body);
                 state.body = body;
                 this.bodies.set(target.id, body);
@@ -168,7 +165,7 @@ class Scratch3PhysicsBlocks {
         // (in case of rotation, costume change, size change)
 
         // update the physics engine
-        this.Engine.update(this.engine, 1000 / 60);
+        this.Engine.update(this.engine, 1000 / 30);
 
         // update the positions of the targets
         for (let i = 1; i < this.runtime.targets.length; i++) {
