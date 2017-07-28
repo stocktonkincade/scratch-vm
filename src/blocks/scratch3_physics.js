@@ -128,8 +128,8 @@ class Scratch3PhysicsBlocks {
                     let vertices = hull.map(p => {
                         return {x: p[0], y: p[1]};
                     });
+                    vertices = Matter.Vertices.hull(vertices);
                     body = this.Bodies.fromVertices(target.x, target.y, vertices, options);
-                    console.log(vertices);
                 } else {
                     body = this.Bodies.rectangle(target.x, target.y, width, height, options);
                 }
