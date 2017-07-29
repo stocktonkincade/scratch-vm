@@ -1,5 +1,6 @@
 const Cast = require('../util/cast');
 const Clone = require('../util/clone');
+const MathUtil = require('../util/math-util');
 
 import decomp from 'poly-decomp';
 window.decomp = decomp;
@@ -28,9 +29,12 @@ class Scratch3PhysicsBlocks {
         // gravity is negative because scratch coords (y goes up) are inverted from matter coords (y goes down)
         this.engine.world.gravity.y = -1;
 
+        // scale factor for force applied by push and pushXY blocks
+        this.forceScale = 0.01;
+
         // add the ground and walls to the world
         // todo: make the walls much taller than the stage, so you can't jump up and over them
-        const wallSize = 500;
+        const wallSize = 1000;
         this.ground = this.Bodies.rectangle(0, -180 - (wallSize / 2), wallSize, wallSize, {isStatic: true});
         this.leftWall = this.Bodies.rectangle(-240 - (wallSize / 2), 0, wallSize, wallSize, {isStatic: true});
         this.rightWall = this.Bodies.rectangle(240 + (wallSize / 2), 0, wallSize, wallSize, {isStatic: true});
@@ -65,12 +69,15 @@ class Scratch3PhysicsBlocks {
             element: document.body,
             engine: this.engine,
             options: {
-                width: 480 + 10,
-                height: 360 + 10,
-                pixelRatio: 2
+                width: 480 / 2,
+                height: 360 / 2
             }
         });
-        Matter.Render.lookAt(render, [this.ground, this.leftWall, this.rightWall]);
+        const renderBounds = Matter.Bounds.create([{x: -240, y: 180}, {x: 240, y: -180}]);
+        const obj = {};
+        obj.bounds = renderBounds;
+        Matter.Render.lookAt(render, obj);
+
         Matter.Render.run(render);
     }
 
@@ -148,36 +155,53 @@ class Scratch3PhysicsBlocks {
             }
         }
 
-        // If a target has been moved by a motion block or a drag
+        // If a target has been moved by a drag, or otherwise moved, rotated or scaled,
         // update it in the engine and zero its velocity
         for (let i = 1; i < this.runtime.targets.length; i++) {
             const target = this.runtime.targets[i];
             const state = this._getPhysicsState(target);
             const body = state.body;
+            // check for position change
             const updatedPos = {x: target.x, y: target.y};
             if ((updatedPos.x !== body.position.x) || (updatedPos.y !== body.position.y)) {
                 Matter.Body.setPosition(body, updatedPos);
                 Matter.Body.setVelocity(body, {x: 0, y: 0});
+                Matter.Body.setAngularVelocity(body, 0);
             }
-        }
+            // check for rotation change
+            let angleDiff = Math.abs(target.direction - this._matterToScratchAngle(body.angle));
+            angleDiff %= 360;
+            if (angleDiff > 1) {
+                Matter.Body.setAngle(body, this._scratchToMatterAngle(target.direction));
+                Matter.Body.setAngularVelocity(body, 0);
+            }
+            // how to do scaling? target.size is a percentage of the original size... so
+            // we can't keep re-applying the scale operation...
+            // Matter.Body.scale(body, target.size / 100, target.size / 100);
 
-        // todo: check if target's bounds and angle have changed and update engine
-        // (in case of rotation, costume change, size change)
+            // todo: update the convex hull if we have changed costume
+        }
 
         // update the physics engine
         this.Engine.update(this.engine, 1000 / 30);
 
-        // update the positions of the targets
+        // update the position and angle of the targets
         for (let i = 1; i < this.runtime.targets.length; i++) {
             const target = this.runtime.targets[i];
             const state = this._getPhysicsState(target);
             const body = state.body;
             target.setXY(body.position.x, body.position.y);
-            const bodyDegrees = body.angle * 180 / Math.PI;
-            const scratchAngle = (360 - bodyDegrees) + 90;
-            target.setDirection(scratchAngle);
+            target.setDirection(this._matterToScratchAngle(body.angle));
         }
         window.requestAnimationFrame(this.step.bind(this));
+    }
+
+    _matterToScratchAngle (matterAngleRadians) {
+        return (360 - Math.round(MathUtil.radToDeg(matterAngleRadians)) + 90);
+    }
+
+    _scratchToMatterAngle (scratchAngleDegrees) {
+        return MathUtil.degToRad(90 - scratchAngleDegrees);
     }
 
     /**
@@ -186,6 +210,7 @@ class Scratch3PhysicsBlocks {
      */
     getPrimitives () {
         return {
+            physics_push: this.push,
             physics_pushXY: this.pushXY,
             physics_setGravity: this.setGravity
         };
@@ -201,14 +226,25 @@ class Scratch3PhysicsBlocks {
     }
 
     pushXY (args, util) {
+        // todo: clamp the force
         const state = this._getPhysicsState(util.target);
-        const scale = 0.01;
-        const x = Cast.toNumber(args.X) * scale;
-        const y = Cast.toNumber(args.Y) * scale;
+        const x = Cast.toNumber(args.X) * this.forceScale;
+        const y = Cast.toNumber(args.Y) * this.forceScale;
         Matter.Body.applyForce(state.body, state.body.position, {x: x, y: y});
     }
 
+    push (args, util) {
+        // todo: clamp the force
+        const state = this._getPhysicsState(util.target);
+        const force = Cast.toNumber(args.FORCE);
+        const radians = this._scratchToMatterAngle(util.target.direction);
+        const fx = force * Math.cos(radians) * this.forceScale;
+        const fy = force * Math.sin(radians) * this.forceScale;
+        Matter.Body.applyForce(state.body, state.body.position, {x: fx, y: fy});
+    }
+
     setGravity (args) {
+        // todo: clamp gravity
         const g = -1 * Cast.toNumber(args.GRAVITY) / 100;
         this.engine.world.gravity.y = g;
     }
