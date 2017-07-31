@@ -60,7 +60,7 @@ class Scratch3PhysicsBlocks {
             }
         });
 
-        // this.showDebugRenderer();
+        this.showDebugRenderer();
     }
 
     showDebugRenderer () {
@@ -70,13 +70,16 @@ class Scratch3PhysicsBlocks {
             engine: this.engine,
             options: {
                 width: 480 / 2,
-                height: 360 / 2
+                height: 360 / 2,
+                showAngleIndicator: true,
+                showCollisions: true,
+                showVelocity: true
             }
         });
-        const renderBounds = Matter.Bounds.create([{x: -240, y: 180}, {x: 240, y: -180}]);
-        const obj = {};
-        obj.bounds = renderBounds;
-        Matter.Render.lookAt(render, obj);
+        Matter.Render.lookAt(render, {
+            min: {x: -240, y: -180},
+            max: {x: 240, y: 180}
+        });
 
         Matter.Render.run(render);
     }
