@@ -143,6 +143,13 @@ class Scratch3PhysicsBlocks {
                 } else {
                     body = this.Bodies.rectangle(target.x, target.y, width, height, options);
                 }
+
+                // offset matter body by target rotation center?
+                // where should this offset happen?
+                // const centerX = target.getCurrentCostume().rotationCenterX;
+                // const centerY = target.getCurrentCostume().rotationCenterY;
+                // Matter.Body.translate(body, Matter.Vector.sub({x: centerX, y: centerY}, body.position));
+
                 this.World.add(this.engine.world, body);
                 state.body = body;
                 this.bodies.set(target.id, body);
