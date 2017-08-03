@@ -144,12 +144,6 @@ class Scratch3PhysicsBlocks {
                     body = this.Bodies.rectangle(target.x, target.y, width, height, options);
                 }
 
-                // offset matter body by target rotation center?
-                // where should this offset happen?
-                // const centerX = target.getCurrentCostume().rotationCenterX;
-                // const centerY = target.getCurrentCostume().rotationCenterY;
-                // Matter.Body.translate(body, Matter.Vector.sub({x: centerX, y: centerY}, body.position));
-
                 this.World.add(this.engine.world, body);
                 state.body = body;
                 this.bodies.set(target.id, body);
@@ -223,6 +217,7 @@ class Scratch3PhysicsBlocks {
             physics_push: this.push,
             physics_pushXY: this.pushXY,
             physics_twist: this.twist,
+            physics_speed: this.getSpeed,
             physics_setGravity: this.setGravity
         };
     }
@@ -265,6 +260,11 @@ class Scratch3PhysicsBlocks {
         // todo: clamp gravity
         const g = -1 * Cast.toNumber(args.GRAVITY) / 100;
         this.engine.world.gravity.y = g;
+    }
+
+    getSpeed (args, util) {
+        const state = this._getPhysicsState(util.target);
+        return state.body.speed;
     }
 }
 
