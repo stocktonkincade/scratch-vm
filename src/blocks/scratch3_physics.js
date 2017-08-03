@@ -222,6 +222,7 @@ class Scratch3PhysicsBlocks {
         return {
             physics_push: this.push,
             physics_pushXY: this.pushXY,
+            physics_twist: this.twist,
             physics_setGravity: this.setGravity
         };
     }
@@ -251,6 +252,13 @@ class Scratch3PhysicsBlocks {
         const fx = force * Math.cos(radians) * this.forceScale;
         const fy = force * Math.sin(radians) * this.forceScale;
         Matter.Body.applyForce(state.body, state.body.position, {x: fx, y: fy});
+    }
+
+    twist (args, util) {
+        // todo: clamp the force
+        const state = this._getPhysicsState(util.target);
+        const force = Cast.toNumber(args.FORCE) * -1;
+        state.body.torque = force;
     }
 
     setGravity (args) {
