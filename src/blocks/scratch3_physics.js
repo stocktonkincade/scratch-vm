@@ -59,29 +59,6 @@ class Scratch3PhysicsBlocks {
                 }
             }
         });
-
-        this.showDebugRenderer();
-    }
-
-    showDebugRenderer () {
-        // create a renderer (for debugging)
-        const render = Matter.Render.create({
-            element: document.body,
-            engine: this.engine,
-            options: {
-                width: 480 / 2,
-                height: 360 / 2,
-                showAngleIndicator: true,
-                showCollisions: true,
-                showVelocity: true
-            }
-        });
-        Matter.Render.lookAt(render, {
-            min: {x: -240, y: -180},
-            max: {x: 240, y: 180}
-        });
-
-        Matter.Render.run(render);
     }
 
     /**
@@ -134,15 +111,23 @@ class Scratch3PhysicsBlocks {
                 };
                 const hull = this.runtime.renderer._getConvexHullPointsForDrawable(target.drawableID);
                 let body;
+                let center;
                 if (hull.length > 0) {
                     let vertices = hull.map(p => {
                         return {x: p[0], y: p[1]};
                     });
                     vertices = Matter.Vertices.hull(vertices);
                     body = this.Bodies.fromVertices(target.x, target.y, vertices, options);
+                    center = Matter.Vertices.centre(vertices);
                 } else {
                     body = this.Bodies.rectangle(target.x, target.y, width, height, options);
+                    center = {x: width / 2, y: height / 2};
                 }
+
+                // todo: set the rotation center of the sprite to the matter center?
+                // target.sprite.costumes[target.currentCostume].rotationCenterX = center.x;
+                // target.sprite.costumes[target.currentCostume].rotationCenterY = center.y;
+                // target.updateAllDrawableProperties();
 
                 this.World.add(this.engine.world, body);
                 state.body = body;
@@ -218,7 +203,9 @@ class Scratch3PhysicsBlocks {
             physics_pushXY: this.pushXY,
             physics_twist: this.twist,
             physics_speed: this.getSpeed,
-            physics_setGravity: this.setGravity
+            physics_setGravity: this.setGravity,
+            physics_toggleDebug: this.toggleDebug
+
         };
     }
 
@@ -229,6 +216,46 @@ class Scratch3PhysicsBlocks {
                 edgeActivated: false
             }
         };
+    }
+
+    toggleDebug () {
+        debugger;
+        if (typeof this.debug === undefined) {
+            this.debug = true;
+            this.showDebugRenderer();
+        } else {
+            this.debug = false;
+            if (this.render) {
+                document.removeChild(this.render.canvas);
+            }
+        }
+    }
+
+    showDebugRenderer () {
+        // this has got to be the wrong way to do this!
+        const element = document.getElementsByClassName('stage_stage-wrapper_eRRuk')[0];
+        // create a renderer (for debugging)
+        this.render = Matter.Render.create({
+            element: element,
+            engine: this.engine,
+            options: {
+                width: 480,
+                height: 360,
+                showAngleIndicator: true,
+                showCollisions: true,
+                showVelocity: true
+            }
+        });
+        Matter.Render.lookAt(this.render, {
+            min: {x: -240, y: -180},
+            max: {x: 240, y: 180}
+        });
+
+        Matter.Render.run(this.render);
+
+        // try to get it to sit on top of the stage and look right
+        this.render.canvas.style.transform = 'scale(1,-1) translate(0px, 360px)';
+        this.render.canvas.style.background = '';
     }
 
     pushXY (args, util) {
