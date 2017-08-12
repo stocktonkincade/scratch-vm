@@ -204,8 +204,8 @@ class Scratch3PhysicsBlocks {
             physics_twist: this.twist,
             physics_speed: this.getSpeed,
             physics_setGravity: this.setGravity,
-            physics_toggleDebug: this.toggleDebug
-
+            physics_lockToStage: this.lockToStage,
+            physics_hingeToStage: this.hingeToStage
         };
     }
 
@@ -218,23 +218,10 @@ class Scratch3PhysicsBlocks {
         };
     }
 
-    toggleDebug () {
-        debugger;
-        if (typeof this.debug === undefined) {
-            this.debug = true;
-            this.showDebugRenderer();
-        } else {
-            this.debug = false;
-            if (this.render) {
-                document.removeChild(this.render.canvas);
-            }
-        }
-    }
-
     showDebugRenderer () {
-        // this has got to be the wrong way to do this!
+        // this has got to be the wrong way to get the stage element...
         const element = document.getElementsByClassName('stage_stage-wrapper_eRRuk')[0];
-        // create a renderer (for debugging)
+
         this.render = Matter.Render.create({
             element: element,
             engine: this.engine,
@@ -290,8 +277,27 @@ class Scratch3PhysicsBlocks {
     }
 
     getSpeed (args, util) {
+        // todo: something odd about this - when gravity is on, speed is 1.1 at rest
         const state = this._getPhysicsState(util.target);
-        return state.body.speed;
+        const speed = state.body.speed;
+        const fixed = parseFloat(speed.toFixed(1));
+        return fixed;
+    }
+
+    lockToStage (args, util) {
+        const state = this._getPhysicsState(util.target);
+        Matter.Body.setStatic(state.body, true);
+    }
+
+    hingeToStage (args, util) {
+        const state = this._getPhysicsState(util.target);
+        const constraint = Matter.Constraint.create({
+            bodyA: state.body,
+            pointB: Matter.Vector.clone(state.body.position),
+            stiffness: 1,
+            length: 0
+        });
+        this.World.add(this.engine.world, constraint);
     }
 }
 
