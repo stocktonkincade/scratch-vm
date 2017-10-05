@@ -398,6 +398,8 @@ class Scratch3WeDo2Blocks {
         this.runtime = runtime;
 
         this.runtime.HACK_WeDo2Blocks = this;
+
+        this.connect();
     }
 
     /**
