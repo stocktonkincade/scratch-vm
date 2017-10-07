@@ -32,6 +32,10 @@ const defaultBlockPackages = {
  */
 const ArgumentTypeMap = (() => {
     const map = {};
+    map[ArgumentType.ANGLE] = {
+        shadowType: 'math_angle',
+        fieldType: 'NUM'
+    };
     map[ArgumentType.COLOR] = {
         shadowType: 'colour_picker'
     };
@@ -43,9 +47,8 @@ const ArgumentTypeMap = (() => {
         shadowType: 'text',
         fieldType: 'TEXT'
     };
-    // @TODO: talk to Rachel & co. to figure out what goes here. Make it OK to not have a field. Add `check` support.
     map[ArgumentType.BOOLEAN] = {
-        shadowType: ''
+        check: 'Boolean'
     };
     return map;
 })();
@@ -388,6 +391,17 @@ class Runtime extends EventEmitter {
     }
 
     /**
+     * Generate an extension-specific menu ID.
+     * @param {string} menuName - the name of the menu.
+     * @param {string} extensionId - the ID of the extension hosting the menu.
+     * @returns {string} - the constructed ID.
+     * @private
+     */
+    _makeExtensionMenuId (menuName, extensionId) {
+        return `${extensionId}.menu.${escapeHtml(menuName)}`;
+    }
+
+    /**
      * Register the primitives provided by an extension.
      * @param {ExtensionInfo} extensionInfo - information about the extension (id, blocks, etc.)
      * @private
@@ -399,11 +413,19 @@ class Runtime extends EventEmitter {
             color1: '#FF6680',
             color2: '#FF4D6A',
             color3: '#FF3355',
-            blocks: []
+            blocks: [],
+            menus: []
         };
 
         this._blockInfo.push(categoryInfo);
 
+        for (const menuName in extensionInfo.menus) {
+            if (extensionInfo.menus.hasOwnProperty(menuName)) {
+                const menuItems = extensionInfo.menus[menuName];
+                const convertedMenu = this._buildMenuForScratchBlocks(menuName, menuItems, extensionInfo);
+                categoryInfo.menus.push(convertedMenu);
+            }
+        }
         for (const blockInfo of extensionInfo.blocks) {
             const convertedBlock = this._convertForScratchBlocks(blockInfo, categoryInfo);
             const opcode = convertedBlock.json.type;
@@ -411,7 +433,51 @@ class Runtime extends EventEmitter {
             this._primitives[opcode] = convertedBlock.info.func;
         }
 
-        this.emit(Runtime.EXTENSION_ADDED, categoryInfo.blocks);
+        this.emit(Runtime.EXTENSION_ADDED, categoryInfo.blocks.concat(categoryInfo.menus));
+    }
+
+    /**
+     * Build the scratch-blocks JSON for a menu. Note that scratch-blocks treats menus as a special kind of block.
+     * @param {string} menuName - the name of the menu
+     * @param {array|string} menuItems - the list of menu items, or the name of an extension method to collect them.
+     * @param {CategoryInfo} categoryInfo - the category for this block
+     * @returns {object} - a JSON-esque object ready for scratch-blocks' consumption
+     * @private
+     */
+    _buildMenuForScratchBlocks (menuName, menuItems, categoryInfo) {
+        const menuId = this._makeExtensionMenuId(menuName, categoryInfo.id);
+
+        /** @TODO: support dynamic menus when 'menuItems' is a method name string (see extension spec) */
+        const options = menuItems.map(item => {
+            switch (typeof item) {
+            case 'string':
+                return [item, item];
+            case 'object':
+                return [item.text, item.value];
+            default:
+                throw new Error(`Can't interpret menu item: ${item}`);
+            }
+        });
+
+        return {
+            json: {
+                message0: '%1',
+                type: menuId,
+                inputsInline: true,
+                output: 'String',
+                colour: categoryInfo.color1,
+                colourSecondary: categoryInfo.color2,
+                colourTertiary: categoryInfo.color3,
+                outputShape: ScratchBlocksConstants.OUTPUT_SHAPE_ROUND,
+                args0: [
+                    {
+                        type: 'field_dropdown',
+                        name: menuName,
+                        options: options
+                    }
+                ]
+            }
+        };
     }
 
     /**
@@ -446,14 +512,10 @@ class Runtime extends EventEmitter {
             // Sanitize the placeholder to ensure valid XML
             placeholder = placeholder.replace(/[<"&]/, '_');
 
-            blockJSON.args0.push({
+            const argJSON = {
                 type: 'input_value',
                 name: placeholder
-            });
-
-            // scratch-blocks uses 1-based argument indexing
-            const argNum = blockJSON.args0.length;
-            argsMap[placeholder] = argNum;
+            };
 
             const argInfo = blockInfo.arguments[placeholder] || {};
             const argTypeInfo = ArgumentTypeMap[argInfo.type] || {};
@@ -461,18 +523,38 @@ class Runtime extends EventEmitter {
                 '' :
                 escapeHtml(argInfo.defaultValue.toString()));
 
-            // <value> is the ScratchBlocks name for a block input.
-            // The <shadow> is a placeholder for a reporter and is visible when there's no reporter in this input.
-            inputList.push(`<value name="${placeholder}"><shadow type="${argTypeInfo.shadowType}">`);
-
-            // <field> is a text field that the user can type into. Some shadows, like the color picker, don't allow
-            // text input and therefore don't need a field element.
-            if (argTypeInfo.fieldType) {
-                inputList.push(`<field name="${argTypeInfo.fieldType}">${defaultValue}</field>`);
+            if (argTypeInfo.check) {
+                argJSON.check = argTypeInfo.check;
             }
 
-            inputList.push('</shadow></value>');
+            const shadowType = (argInfo.menu ?
+                this._makeExtensionMenuId(argInfo.menu, categoryInfo.id) :
+                argTypeInfo.shadowType);
+            const fieldType = argInfo.menu || argTypeInfo.fieldType;
 
+            // <value> is the ScratchBlocks name for a block input.
+            inputList.push(`<value name="${placeholder}">`);
+
+            // The <shadow> is a placeholder for a reporter and is visible when there's no reporter in this input.
+            // Boolean inputs don't need to specify a shadow in the XML.
+            if (shadowType) {
+                inputList.push(`<shadow type="${shadowType}">`);
+
+                // <field> is a text field that the user can type into. Some shadows, like the color picker, don't allow
+                // text input and therefore don't need a field element.
+                if (fieldType) {
+                    inputList.push(`<field name="${fieldType}">${defaultValue}</field>`);
+                }
+
+                inputList.push('</shadow>');
+            }
+
+            inputList.push('</value>');
+
+            // scratch-blocks uses 1-based argument indexing
+            blockJSON.args0.push(argJSON);
+            const argNum = blockJSON.args0.length;
+            argsMap[placeholder] = argNum;
             return `%${argNum}`;
         });
 
