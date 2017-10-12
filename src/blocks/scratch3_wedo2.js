@@ -616,10 +616,11 @@ class Scratch3WeDo2Blocks {
     motorOnFor (args) {
         const durationMS = args.DURATION * 1000;
         return new Promise(resolve => {
-            this._forEachMotor(args.MOTOR_ID, motorIndex => {
-                this._device.motor(motorIndex).setMotorOnFor(durationMS);
-            });
-
+            if (this._device) {
+                this._forEachMotor(args.MOTOR_ID, motorIndex => {
+                    this._device.motor(motorIndex).setMotorOnFor(durationMS);
+                });
+            }
             // Ensure this block runs for a fixed amount of time even when no device is connected.
             setTimeout(resolve, durationMS);
         });
@@ -631,9 +632,11 @@ class Scratch3WeDo2Blocks {
      * @property {MotorID} MOTOR_ID - the motor(s) to activate.
      */
     motorOn (args) {
-        this._forEachMotor(args.MOTOR_ID, motorIndex => {
-            this._device.motor(motorIndex).setMotorOn();
-        });
+        if (this._device) {
+            this._forEachMotor(args.MOTOR_ID, motorIndex => {
+                this._device.motor(motorIndex).setMotorOn();
+            });
+        }
     }
 
     /**
@@ -642,9 +645,11 @@ class Scratch3WeDo2Blocks {
      * @property {MotorID} MOTOR_ID - the motor(s) to deactivate.
      */
     motorOff (args) {
-        this._forEachMotor(args.MOTOR_ID, motorIndex => {
-            this._device.motor(motorIndex).setMotorOff();
-        });
+        if (this._device) {
+            this._forEachMotor(args.MOTOR_ID, motorIndex => {
+                this._device.motor(motorIndex).setMotorOff();
+            });
+        }
     }
 
     /**
@@ -654,11 +659,14 @@ class Scratch3WeDo2Blocks {
      * @property {int} POWER - the new power level for the motor(s).
      */
     startMotorPower (args) {
-        this._forEachMotor(args.MOTOR_ID, motorIndex => {
-            const motor = this._device.motor(motorIndex);
-            motor.power = args.POWER;
-            motor.setMotorOn();
-        });
+        if (this._device) {
+            this._forEachMotor(args.MOTOR_ID, motorIndex => {
+                const motor = this._device.motor(motorIndex);
+                motor.power = args.POWER;
+                motor.setMotorOn();
+            });
+        }
+        return this._shortWait();
     }
 
     /**
@@ -669,6 +677,9 @@ class Scratch3WeDo2Blocks {
      * @property {MotorDirection} DIRECTION - the new direction for the motor(s).
      */
     setMotorDirection (args) {
+        if (!this._device) {
+            return;
+        }
         this._forEachMotor(args.MOTOR_ID, motorIndex => {
             const motor = this._device.motor(motorIndex);
             switch (args.DIRECTION) {
@@ -701,7 +712,9 @@ class Scratch3WeDo2Blocks {
 
         const rgbDecimal = color.rgbToDecimal(rgbObject);
 
-        this._device.setLED(rgbDecimal);
+        if (this._device) {
+            this._device.setLED(rgbDecimal);
+        }
     }
 
     /**
@@ -715,7 +728,9 @@ class Scratch3WeDo2Blocks {
         return new Promise(resolve => {
             const durationMS = args.DURATION * 1000;
             const tone = this._noteToTone(args.NOTE);
-            this._device.playTone(tone, durationMS);
+            if (this._device) {
+                this._device.playTone(tone, durationMS);
+            }
 
             // Ensure this block runs for a fixed amount of time even when no device is connected.
             setTimeout(resolve, durationMS);
@@ -755,6 +770,9 @@ class Scratch3WeDo2Blocks {
      * @return {number} - the distance sensor's value, scaled to the [0,100] range.
      */
     getDistance () {
+        if (!this._device) {
+            return 0;
+        }
         return this._device.distance * 10;
     }
 
@@ -785,6 +803,9 @@ class Scratch3WeDo2Blocks {
      * @private
      */
     _isTilted (direction) {
+        if (!this._device) {
+            return false;
+        }
         switch (direction) {
         case TiltDirection.ANY:
             return (Math.abs(this._device.tiltX) >= Scratch3WeDo2Blocks.TILT_THRESHOLD) ||
@@ -801,6 +822,9 @@ class Scratch3WeDo2Blocks {
      * @private
      */
     _getTiltAngle (direction) {
+        if (!this._device) {
+            return 0;
+        }
         switch (direction) {
         case TiltDirection.UP:
             return -this._device.tiltY;
