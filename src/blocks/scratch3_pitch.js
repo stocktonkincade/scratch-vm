@@ -91,8 +91,11 @@ class PitchTracker {
 
         var autocorrelation = [];
 
-        // center clipping (ideally, cutoff is proportional to signal level)
-        var cutoff = 0.001;
+        // center clipping (with cutoff proportional to signal level)
+        var max = buffer.reduce(function(a, b) {
+            return Math.max(a, b);
+        });
+        var cutoff = max * 0.5;
         for (var i = 0; i < buffer.length; i++) {
             var val = buffer[i];
             buffer[i] = Math.abs(val) > cutoff ? val : 0;
