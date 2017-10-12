@@ -647,6 +647,7 @@ class Scratch3WeDo2Blocks {
                 this._device.motor(motorIndex).setMotorOn();
             });
         }
+        return this._shortWait();
     }
 
     /**
@@ -660,6 +661,7 @@ class Scratch3WeDo2Blocks {
                 this._device.motor(motorIndex).setMotorOff();
             });
         }
+        return this._shortWait();
     }
 
     /**
@@ -707,6 +709,7 @@ class Scratch3WeDo2Blocks {
                 break;
             }
         });
+        return this._shortWait();
     }
 
     /**
@@ -725,6 +728,9 @@ class Scratch3WeDo2Blocks {
         if (this._device) {
             this._device.setLED(rgbDecimal);
         }
+        return this._shortWait();
+    }
+
     /**
      * Set the LED's color by hex value.
      * @param {object} args - the block's arguments.
@@ -735,6 +741,7 @@ class Scratch3WeDo2Blocks {
         if (this._device) {
             this._device.setLED(rgbDecimal);
         }
+        return this._shortWait();
     }
 
     /**
@@ -898,6 +905,16 @@ class Scratch3WeDo2Blocks {
     _noteToTone (midiNote) {
         // Note that MIDI note 69 is A4, 440 Hz
         return 440 * Math.pow(2, (midiNote - 69) / 12);
+    }
+
+    /**
+     * Wait for a short time, to prevent sending messages too fast.
+     * @return {Promise} - a promise which will resolve at the end of the wait time.
+     */
+    _shortWait () {
+        return new Promise(resolve => {
+            setTimeout(resolve, 50);
+        });
     }
 }
 
