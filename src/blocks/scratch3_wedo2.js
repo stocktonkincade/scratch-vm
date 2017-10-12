@@ -554,7 +554,7 @@ class Scratch3WeDo2Blocks {
                 {
                     opcode: 'isTilted',
                     text: 'tilted [DIRECTION]?',
-                    blockType: BlockType.REPORTER,
+                    blockType: BlockType.BOOLEAN,
                     arguments: {
                         DIRECTION: {
                             type: ArgumentType.STRING,
