@@ -746,8 +746,10 @@ class Scratch3WeDo2Blocks {
      */
     whenDistance (args) {
         switch (args.OP) {
+        case '&lt;': //@todo: remove once encoding bug is fixed
         case '<':
             return this._device.distance < args.REFERENCE;
+        case '&gt;': //@todo: remove once encoding bug is fixed
         case '>':
             return this._device.distance > args.REFERENCE;
         default:
