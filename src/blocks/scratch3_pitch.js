@@ -14,8 +14,13 @@ class PitchTracker {
         }
 
         const pitchData = this.pitchDataForBuffer(buffer);
-        const pitch = pitchData.pitch;
-        return Math.round(pitch);
+        const pitch = Math.round(pitchData.pitch);
+
+        if (pitch > 96) {
+            return -1;
+        }
+
+        return pitch;
     }
 
     getRMS (buffer) {
