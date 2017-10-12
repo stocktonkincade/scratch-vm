@@ -663,7 +663,7 @@ class Scratch3WeDo2Blocks {
     }
 
     /**
-     * Turn specified motor(s) off.
+     * Set the power and turn on the specified motor(s).
      * @param {object} args - the block's arguments.
      * @property {MotorID} MOTOR_ID - the motor(s) to be affected.
      * @property {int} POWER - the new power level for the motor(s).
