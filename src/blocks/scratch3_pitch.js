@@ -149,8 +149,20 @@ class Scratch3PitchBlocks {
             this.micDataArray = new Float32Array(this.analyser.fftSize);
         }).catch(err => {
             console.log(err);
+        }).then(() => {
+            this.startAnalyzing();
         });
+
         this.pitchTracker = new PitchTracker(this.audioContext.sampleRate);
+
+        this.pitch = -1;
+    }
+
+    startAnalyzing () {
+        window.setInterval(() => {
+            this.analyser.getFloatTimeDomainData(this.micDataArray);
+            this.pitch = this.pitchTracker.getPitch(this.micDataArray);
+        }, 50);
     }
 
     /**
@@ -171,9 +183,7 @@ class Scratch3PitchBlocks {
     }
 
     getPitch () {
-        this.analyser.getFloatTimeDomainData(this.micDataArray);
-        const pitch = this.pitchTracker.getPitch(this.micDataArray);
-        return pitch;
+        return this.pitch;
     }
 }
 
