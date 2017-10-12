@@ -748,10 +748,10 @@ class Scratch3WeDo2Blocks {
         switch (args.OP) {
         case '&lt;': //@todo: remove once encoding bug is fixed
         case '<':
-            return this._device.distance < args.REFERENCE;
+            return this.getDistance() < args.REFERENCE;
         case '&gt;': //@todo: remove once encoding bug is fixed
         case '>':
-            return this._device.distance > args.REFERENCE;
+            return this.getDistance() > args.REFERENCE;
         default:
             log.warn(`Unknown comparison operator in whenDistance: ${args.OP}`);
             return false;
