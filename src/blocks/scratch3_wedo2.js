@@ -482,6 +482,16 @@ class Scratch3WeDo2Blocks {
                     }
                 },
                 {
+                    opcode: 'setLightHex',
+                    text: 'set light color to [HEX]',
+                    blockType: BlockType.COMMAND,
+                    arguments: {
+                        HEX: {
+                            type: ArgumentType.COLOR
+                        }
+                    }
+                },
+                {
                     opcode: 'setLightHue',
                     text: 'set light color to [HUE]',
                     blockType: BlockType.COMMAND,
@@ -712,6 +722,16 @@ class Scratch3WeDo2Blocks {
 
         const rgbDecimal = color.rgbToDecimal(rgbObject);
 
+        if (this._device) {
+            this._device.setLED(rgbDecimal);
+        }
+    /**
+     * Set the LED's color by hex value.
+     * @param {object} args - the block's arguments.
+     * @property {number} HEX - the hexadecimal RGB color value to set.
+     */
+    setLightHex (args) {
+        const rgbDecimal = color.hexToDecimal(args.HEX);
         if (this._device) {
             this._device.setLED(rgbDecimal);
         }
