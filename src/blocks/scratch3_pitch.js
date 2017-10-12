@@ -140,8 +140,12 @@ class Scratch3PitchBlocks {
         this.audioContext = new AudioContext();
         navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
             this.mic = this.audioContext.createMediaStreamSource(stream);
+            this.lowpass = this.audioContext.createBiquadFilter();
+            this.lowpass.type = 'lowpass';
+            this.lowpass.frequency.value = 2000;
             this.analyser = this.audioContext.createAnalyser();
-            this.mic.connect(this.analyser);
+            this.mic.connect(this.lowpass);
+            this.lowpass.connect(this.analyser);
             this.micDataArray = new Float32Array(this.analyser.fftSize);
         }).catch(err => {
             console.log(err);
