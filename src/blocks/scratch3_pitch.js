@@ -1,5 +1,6 @@
 const ArgumentType = require('../extension-support/argument-type');
 const BlockType = require('../extension-support/block-type');
+const Cast = require('../util/cast');
 
 class PitchTracker {
 
@@ -139,6 +140,8 @@ class PitchTracker {
     }
 }
 
+const PitchNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
 class Scratch3PitchBlocks {
     constructor (runtime) {
         this.audioContext = new AudioContext();
@@ -160,6 +163,9 @@ class Scratch3PitchBlocks {
         this.pitchTracker = new PitchTracker(this.audioContext.sampleRate);
 
         this.pitch = -1;
+
+        this.samePitchCounter = 0;
+        this.prevPitchClass = -1;
     }
 
     startAnalyzing () {
@@ -181,13 +187,47 @@ class Scratch3PitchBlocks {
                     opcode: 'getPitch',
                     text: 'pitch',
                     blockType: BlockType.REPORTER
-                }
-            ]
+                },
+                {
+                    opcode: 'whenPitch',
+                    text: 'when I hear [PITCH]',
+                    blockType: BlockType.HAT,
+                    arguments: {
+                        PITCH: {
+                            type: ArgumentType.STRING,
+                            menu: 'pitchNames',
+                            defaultValue: PitchNames[0]
+                        }
+                    }
+                },
+            ],
+            menus: {
+                pitchNames: PitchNames
+            }
         };
     }
 
     getPitch () {
         return this.pitch;
+    }
+
+    whenPitch (args) {
+        const pitchClass = this.pitch % 12;
+        if ((pitchClass === this.prevPitchClass) && (this.pitch != -1)) {
+            this.samePitchCounter++;
+        } else {
+            this.samePitchCounter = 0;
+            this.prevPitchClass = -1;
+        }
+        this.prevPitchClass = pitchClass;
+
+        const selectedPitchClass = PitchNames.indexOf(args.PITCH);
+        if (selectedPitchClass === pitchClass) {
+            if (this.samePitchCounter > 5) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
