@@ -20,6 +20,10 @@ class PitchTracker {
             return -1;
         }
 
+        if (isNaN(pitch)) {
+            return -1;
+        }
+
         return pitch;
     }
 
