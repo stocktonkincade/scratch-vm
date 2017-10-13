@@ -360,8 +360,8 @@ const MotorDirection = {
  * @enum {string}
  */
 const TiltDirection = {
-    UP: 'front',
-    DOWN: 'back',
+    UP: 'back',
+    DOWN: 'front',
     LEFT: 'left',
     RIGHT: 'right',
     ANY: 'any'
