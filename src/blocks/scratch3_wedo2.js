@@ -588,7 +588,7 @@ class Scratch3WeDo2Blocks {
                         DIRECTION: {
                             type: ArgumentType.STRING,
                             menu: 'tiltDirection',
-                            defaultValue: TiltDirection.UP
+                            defaultValue: TiltDirection.DOWN
                         }
                     }
                 }
