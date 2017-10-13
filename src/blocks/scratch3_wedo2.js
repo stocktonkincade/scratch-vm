@@ -245,7 +245,7 @@ class WeDo2 {
      * @return {number} - the latest value received from the distance sensor.
      */
     get distance () {
-        return this._sensors.distance;
+        return this._sensors.distance * 10;
     }
 
     /**
@@ -373,9 +373,9 @@ const TiltDirection = {
 class Scratch3WeDo2Blocks {
 
     /**
-     * @return {string} - the name of this extension.
+     * @return {string} - the ID of this extension.
      */
-    static get EXTENSION_NAME () {
+    static get EXTENSION_ID () {
         return 'wedo2';
     }
 
@@ -405,7 +405,7 @@ class Scratch3WeDo2Blocks {
      */
     getInfo () {
         return {
-            id: 'wedo2',
+            id: Scratch3WeDo2Blocks.EXTENSION_ID,
             name: 'WeDo 2.0',
             blocks: [
                 {
@@ -596,7 +596,7 @@ class Scratch3WeDo2Blocks {
         }
         const deviceManager = this.runtime.ioDevices.deviceManager;
         const finder = this._finder =
-            deviceManager.searchAndConnect(Scratch3WeDo2Blocks.EXTENSION_NAME, WeDo2.DEVICE_TYPE);
+            deviceManager.searchAndConnect(Scratch3WeDo2Blocks.EXTENSION_ID, WeDo2.DEVICE_TYPE);
         this._finder.promise.then(
             socket => {
                 if (this._finder === finder) {
@@ -775,10 +775,11 @@ class Scratch3WeDo2Blocks {
         switch (args.OP) {
         case '&lt;': //@todo: remove once encoding bug is fixed
         case '<':
-            return this.getDistance() < args.REFERENCE;
-        case '&gt;': //@todo: remove once encoding bug is fixed
+        case '&lt;':
+            return this._device.distance < args.REFERENCE;
         case '>':
-            return this.getDistance() > args.REFERENCE;
+        case '&gt;':
+            return this._device.distance > args.REFERENCE;
         default:
             log.warn(`Unknown comparison operator in whenDistance: ${args.OP}`);
             return false;
@@ -799,10 +800,7 @@ class Scratch3WeDo2Blocks {
      * @return {number} - the distance sensor's value, scaled to the [0,100] range.
      */
     getDistance () {
-        if (!this._device) {
-            return 0;
-        }
-        return this._device.distance * 10;
+        return this._device.distance;
     }
 
     /**
