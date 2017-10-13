@@ -367,6 +367,11 @@ const TiltDirection = {
     ANY: 'any'
 };
 
+const TiltOrDistance = {
+    TILT: 'tilt',
+    DISTANCE: 'distance'
+};
+
 /**
  * Scratch 3.0 blocks to interact with a LEGO WeDo 2.0 device.
  */
@@ -547,6 +552,18 @@ class Scratch3WeDo2Blocks {
                     }
                 },
                 {
+                    opcode: 'whenSensorChanges',
+                    text: 'when [SENSOR] changes',
+                    blockType: BlockType.HAT,
+                    arguments: {
+                        SENSOR: {
+                            type: ArgumentType.STRING,
+                            menu: 'tiltOrDistance',
+                            defaultValue: TiltOrDistance.TILT
+                        }
+                    }
+                },
+                {
                     opcode: 'getDistance',
                     text: 'distance',
                     blockType: BlockType.REPORTER
@@ -582,7 +599,8 @@ class Scratch3WeDo2Blocks {
                 tiltDirection: [TiltDirection.UP, TiltDirection.DOWN, TiltDirection.LEFT, TiltDirection.RIGHT],
                 tiltDirectionAny:
                     [TiltDirection.UP, TiltDirection.DOWN, TiltDirection.LEFT, TiltDirection.RIGHT, TiltDirection.ANY],
-                lessMore: ['<', '>']
+                lessMore: ['<', '>'],
+                tiltOrDistance: [TiltOrDistance.TILT, TiltOrDistance.DISTANCE]
             }
         };
     }
@@ -801,6 +819,41 @@ class Scratch3WeDo2Blocks {
      */
     getDistance () {
         return this._device.distance;
+    }
+
+    whenSensorChanges (args) {
+        switch(args.SENSOR) {
+        case TiltOrDistance.TILT:
+            if ((typeof this.prevTiltX) === 'undefined') {
+                this.prevTiltX = 0;
+                this.prevTiltY = 0
+            }
+            if (this._device) {
+                const diffX = Math.abs(this._device.tiltX - this.prevTiltX);
+                const diffY = Math.abs(this._device.tiltY - this.prevTiltY);
+                this.prevTiltX = this._device.tiltX;
+                this.prevTiltY = this._device.tiltY;
+                const tiltChangeThreshold = 5
+                if ((diffX >= tiltChangeThreshold) || (diffY >= tiltChangeThreshold)) {
+                    return true;
+                }
+            }
+            break;
+        case TiltOrDistance.DISTANCE:
+            if ((typeof this.prevDistance) === 'undefined') {
+                console.log('first time distance');
+                this.prevDistance = 0;
+            }
+            if (this._device) {
+                const diff = Math.abs(this._device.distance - this.prevDistance);
+                this.prevDistance = this._device.distance;
+                if (diff >= 10) {
+                    return true;
+                }
+            }
+            break;
+        }
+        return false;
     }
 
     /**
