@@ -14,7 +14,7 @@ const builtinExtensions = {
     pen: Scratch3PenBlocks,
     wedo2: Scratch3WeDo2Blocks,
     music: Scratch3MusicBlocks,
-    speech: Scratch3SpeechBlocks
+    speech: Scratch3SpeechBlocks,
 };
 
 /**
