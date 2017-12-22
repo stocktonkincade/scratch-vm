@@ -32,6 +32,7 @@ class Scratch3SpeechBlocks {
          */
         this._speechList = [];
 
+        this._alreadyListening = false;
 
         // The ScriptProcessorNode hooked up to the audio context.
         this._scriptNode = null;
@@ -87,7 +88,11 @@ class Scratch3SpeechBlocks {
 	 	this._closeWebsocket();
 	 	if (this._speechList.length > 0) {
 	 		console.log('resetting so resolving everything');
-	 		this._speechList = [];
+	   	  for (var i = 0; i < this._speechList.length; i++) {
+		  	var resFn = this._speechList[i];
+		  	resFn();
+   	  	  }
+	 		this._speechList = [];  // TODO does this actually resolve anything?
 	 	}
 	}
 
@@ -101,10 +106,18 @@ class Scratch3SpeechBlocks {
 	   	  this._context.suspend.bind(this._context);
    		  this._closeWebsocket();
    	      resolve();
-     	if (this._speechList.length > 0) {
-   	  		console.log('there is more listening to do. start another.');
-	   	  	this._startNextListening();
-	   	}
+   	      for (var i = 0; i < this._speechList.length; i++) {
+		  	var resFn = this._speechList[i];
+		  	resFn();
+   	  	  }
+
+   	      this._speechList = []; // reset list. CHECK WITH PROMISE IS RESOLVED
+   	      this._alreadyListening = false;
+     // 	if (this._speechList.length > 0) {
+   	 //  		console.log('there is more listening to do. start another.');
+	   	//   	this._startNextListening();
+	   	// }
+
    	  }
    	}
 
@@ -195,19 +208,19 @@ class Scratch3SpeechBlocks {
       // trim off any white space
       text = text.trim();
 
-   	  var resolve = this._speechList.shift();
+   	  var resolve = this._speechList[0];
    	  this.current_utterance = text;
    	  console.log('current utterance set to: ' + text);
-   	  
+   	  for (var i = 0; i < this._speechList.length; i++) {
+	  	var resFn = this._speechList[i];
+	  	resFn();
+   	  }
    	  // Pause the mic and close the web socket.
    	  this._context.suspend.bind(this._context);
    	  this._closeWebsocket();
-   	  
-   	  resolve();
-   	  if (this._speechList.length > 0) {
-   	  	console.log('there is more listening to do. start another.');
-   	  	this._startNextListening();
-   	  }
+
+   	  this._speechList = [];
+   	  this._alreadyListening = false;
    }
 
    // Disconnect all the audio stuff on the client.
@@ -384,12 +397,14 @@ class Scratch3SpeechBlocks {
     _startNextListening() {
       if (this._speechList.length > 0) {
         this.startRecording();
+        this._alreadyListening = true;
+        setTimeout(this._timeOutListening, 15000);
       } else {
       	console.log('trying to start listening but for no reason?');
       }
         //const resolve = this._questionList[0];
     	// I think the timeout goes here? Test later. GO fix the callback though.
-      setTimeout(this._timeOutListening, 15000);
+      //setTimeout(this._timeOutListening, 15000);
     }
 
     // Reporter for the last heard phrase/utterance.
