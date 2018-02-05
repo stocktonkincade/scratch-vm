@@ -30,9 +30,15 @@ class Scratch3SpeechBlocks {
          * The list of queued `resolve` callbacks for speech'.
          * @type {!Array}
          */
+        // Note. This a list because each block used to have its own chance to listen
+        // e.g. each block listenend for an utterance.  I've switched it back so that
+        // if two listen blocks try to start running at the same time,
+        // there is only 1 utterance detected
         this._speechList = [];
 
         this._alreadyListening = false;
+
+        this._speechTimeout = null;
 
         // The ScriptProcessorNode hooked up to the audio context.
         this._scriptNode = null;
@@ -154,7 +160,8 @@ class Scratch3SpeechBlocks {
   	
   	// Setup listening for socket.
   	_socketMessageCallback(e) {
- 		this._socket.addEventListener('message', this._onTranscriptionFromServer);
+        console.log('socket message callback');
+ 		    this._socket.addEventListener('message', this._onTranscriptionFromServer);
         this._startByteStream(e);
   	}
 
@@ -212,8 +219,8 @@ class Scratch3SpeechBlocks {
    	  this.current_utterance = text;
    	  console.log('current utterance set to: ' + text);
    	  for (var i = 0; i < this._speechList.length; i++) {
-	  	var resFn = this._speechList[i];
-	  	resFn();
+	  	  var resFn = this._speechList[i];
+	  	  resFn();
    	  }
    	  // Pause the mic and close the web socket.
    	  this._context.suspend.bind(this._context);
@@ -221,6 +228,10 @@ class Scratch3SpeechBlocks {
 
    	  this._speechList = [];
    	  this._alreadyListening = false;
+      if (this._speechTimeout) {
+        clearTimeout(this._speechTimeout);
+        this._speechTimeout = null;
+      }
    }
 
    // Disconnect all the audio stuff on the client.
@@ -297,7 +308,7 @@ class Scratch3SpeechBlocks {
   	  this._newWebsocket();
   	  return;
   	}
-	 	
+	 	console.log('starting recording');
   	// All the setup for reading from microphone.
 	 	this._context = new AudioContext();
 	 	// TODO: put these constants elsewhere
@@ -398,7 +409,7 @@ class Scratch3SpeechBlocks {
       if (this._speechList.length > 0) {
         this.startRecording();
         this._alreadyListening = true;
-        setTimeout(this._timeOutListening, 15000);
+        this._speechTimeout = setTimeout(this._timeOutListening, 15000);
       } else {
       	console.log('trying to start listening but for no reason?');
       }
