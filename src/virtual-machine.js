@@ -14,7 +14,7 @@ const Variable = require('./engine/variable');
 const {loadCostume} = require('./import/load-costume.js');
 const {loadSound} = require('./import/load-sound.js');
 
-const RESERVED_NAMES = ['_mouse_', '_stage_', '_edge_', '_myself_', '_random_'];
+const RESERVED_NAMES = ['_mouse_', '_stage_', '_edge_', '_myself_', '_random_', 'Stage'];
 
 /**
  * Handles connections between blocks, stage, and extensions.
