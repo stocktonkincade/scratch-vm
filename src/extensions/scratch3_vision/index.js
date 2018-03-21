@@ -249,6 +249,11 @@ class VisionBlocks {
                             defaultValue: ACCEPTED_LABELS[0]
                         }
                     }
+                },
+                {
+                    opcode: 'thingSeen',
+                    text: 'thing seen',
+                    blockType: BlockType.REPORTER
                 }
             ],
             menus: {
@@ -265,6 +270,14 @@ class VisionBlocks {
 
     isSeen (args) {
         return this._currentLabels.indexOf(args.LABEL) > -1;
+    }
+
+    thingSeen () {
+        if (this._currentLabels.length > 0) {
+            return this._currentLabels[0];
+        } else {
+            return '';
+        }
     }
 }
 
