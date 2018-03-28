@@ -151,7 +151,6 @@ class VisionBlocks {
         // Handle error events
         this._socket.onerror = (e) => {
             console.log(e);
-            this._reconnect();
         };
 
         // Handle close events
