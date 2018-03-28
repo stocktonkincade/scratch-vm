@@ -151,14 +151,25 @@ class VisionBlocks {
         // Handle error events
         this._socket.onerror = (e) => {
             console.log(e);
-            // @todo Handle reconnection
+            this._reconnect();
         };
 
         // Handle close events
         this._socket.onclose = (e) => {
             console.log(e);
-            // @todo Handle reconnection
+            this._reconnect();
         }
+    }
+
+    _reconnect () {
+        if (this._socket.readyState === 0) return; // We're already connecting
+
+        this._lastLabels = this._currentLabels = [];
+
+        setTimeout(() => {
+            console.log('trying to reconnect...');
+            this._setupServer();
+        }, 5000);
     }
 
     _loop () {
