@@ -21,7 +21,8 @@ const menuIconURI = blockIconURI;
  * @constructor
  */
 class Scratch3MakeyMakeyBlocks {
-    constructor () {
+    constructor (runtime) {
+        this.runtime = runtime;
         this.keyRepeatFlags = {};
     }
     /**
@@ -45,6 +46,23 @@ class Scratch3MakeyMakeyBlocks {
                             defaultValue: 'space'
                         }
                     }
+                },
+                {
+                    opcode: 'playSoundOnNote',
+                    text: 'play [SOUND] on note [NOTE]',
+                    blockType: BlockType.COMMAND,
+                    arguments: {
+                        SOUND: {
+                            type: ArgumentType.STRING,
+                            menu: 'SOUNDS',
+                            defaultValue: 'meow'
+                        },
+                        NOTE: {
+                            type: ArgumentType.STRING,
+                            menu: 'NOTES',
+                            defaultValue: 'C'
+                        }
+                    }
                 }
             ],
             menus: {
@@ -60,7 +78,9 @@ class Scratch3MakeyMakeyBlocks {
                     {text: 'd', value: 'd'},
                     {text: 'f', value: 'f'},
                     {text: 'g', value: 'g'}
-                ]
+                ],
+                SOUNDS: 'getSounds',
+                NOTES: ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C2']
             }
         };
     }
@@ -82,6 +102,14 @@ class Scratch3MakeyMakeyBlocks {
             this.keyRepeatFlags[args.KEY] = false;
         }
         return this.keyRepeatFlags[args.KEY];
+    }
+
+    playSoundOnNote (args, util) {
+    }
+
+    getSounds () {
+        const sounds = this.runtime._editingTarget.sprite.sounds;
+        return sounds.map(s => s.name);
     }
 }
 module.exports = Scratch3MakeyMakeyBlocks;
