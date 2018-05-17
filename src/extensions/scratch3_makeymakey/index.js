@@ -11,8 +11,7 @@ const BlockType = require('../../extension-support/block-type');
 
 // just a banana
 // eslint-disable-next-line max-len
-const blockIconURI =
-'data:image/svg+xml;base64,PHN2ZyBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTM0LjYgMTM0LjYiPjxzdHlsZT4uc3QwLC5zdDN7ZmlsbDojNmU2ZjcxfS5zdDN7ZGlzcGxheTppbmxpbmV9PC9zdHlsZT48ZyBpZD0iTGF5ZXJfMV8xXyI+PHBhdGggY2xhc3M9InN0MCIgZD0iTTQ5LjcgMTIwLjVjLTExLjEgMC0yMi01LTI5LTEzLjQtMy4zLTMuNy00LjUtOC4yLTMuMy0xMi40IDEuMy00LjIgNC44LTcuMyA5LjctOC41IDYuNC0xLjYgMTMuMi0yLjggMTkuNi0zLjYgMjEuNS0yLjUgMzQuNS0xNi42IDM1LTM3LjgtLjEtMS4yLS41LTIuNy0xLjMtNC41LS43LTEuOC0xLjUtMy41LTIuMy01LjItMS4zLTIuOC0yLjYtNS42LTMuNi04LjYtMS4yLTMuMi0uOS02LjIuNi04LjUgMS42LTIuMyA0LjUtMy42IDguMS0zLjZoMS4xYy4zIDAgLjcgMCAxLjEtLjEuNS0uMSAxLjEtLjEgMS43LS4xIDEgMCAxLjkuMiAyLjYuNmwuNi4zYzIuMi45IDQuOSAyLjEgNi4zIDQuM2wuMS4xYzEuMSAyLjEgMS45IDQuNCAyLjcgNi43LjYgMS44IDEuMiAzLjQgMS45IDUgMSAxLjkgMi43IDMuOCA0LjUgNS4xbC4xLjFjOS45IDguMyAxMy42IDE5LjIgMTAuOSAzMi4zLTIuNiAxNC4yLTEwLjUgMjYuNS0yMy42IDM2LjYtMTEuNyA5LjQtMjUuNyAxNC43LTQwLjUgMTUuMi0uOS0uMS0yIDAtMyAwek0yNi42IDk4LjNjMCAxLjQuNSAyLjYgMS4yIDMuMmwuMS4xLjEuMWM1LjggNiAxNCA5LjMgMjMgOS4zIDEgMCAyIDAgMy0uMSAxMS44LTEuMSAyMy4xLTUuMyAzMi42LTEyLjIgMTEuMi05IDE3LjgtMTguNiAyMC44LTMwLjMgMi44LTEwLjguMi0xOS04LjEtMjUuOS00LjItMy4yLTYuOC03LjUtNy41LTEyLjMtLjctNS0yLjYtNi41LTcuOC02LjVoLS41YzAgLjEgMCAuMi4xLjMuMy45LjYgMS45LjggMi45LjUgMi4xIDEuMSA0LjMgMi4xIDUuNiA2IDcuMyA0LjMgMTUuMSAyLjggMjJDODUgNzYuNyA3MS44IDg4LjYgNDcuOCA5MmMtNS43LjgtMTEuMiAxLjktMTguNCAzLjctMS40LjUtMi40IDEuNS0yLjggMi42eiIvPjxwYXRoIGNsYXNzPSJzdDAiIGQ9Ik05MS43IDEwMy4xYy0xMS4yIDktMjQuNyAxNC4yLTM5LjEgMTQuNy0xMS4zLjktMjIuNi0zLjYtMzAtMTIuNC01LjgtNi40LTMuMy0xNC43IDUuMS0xNi44QzM0IDg3IDQwLjYgODUuOCA0NyA4NS4xYzIyLjgtMi42IDM2LjgtMTcuNyAzNy4zLTQwLjQtLjEtMS45LS44LTMuOS0xLjUtNS41LTEuOS00LjYtNC4yLTktNS44LTEzLjYtMi01LjQgMS4xLTkgNi45LTguNyAxLjUuMiAzLjQtLjcgNC44LjEgMi4xLjkgNC44IDEuOSA1LjggMy42IDEuOSAzLjUgMi44IDcuOSA0LjUgMTEuNiAxLjMgMi40IDMuMiA0LjUgNS4yIDYgOS41IDcuOSAxMi41IDE3LjkgMTAuMSAyOS44LTIuNSAxMy42LTEwLjMgMjUuNS0yMi42IDM1LjF6bS0zLjUtMi4zYzEwLjgtOC43IDE4LjQtMTguNyAyMS43LTMxLjYgMy0xMS42LjMtMjAuOC05LTI4LjQtMy40LTIuNi02LTYuMi02LjctMTAuNy0uOS02LjYtNC4yLTguNy0xMC40LTguNy0yLjggMC0zLjUgMS4zLTIuOCAzLjYgMSAzLjEgMS41IDYuOSAzLjQgOS40IDUuMiA2LjMgMy45IDEyLjkgMi40IDE5LjlDODIuNSA3Ni4yIDY5IDg2LjQgNDcuNCA4OS41Yy02LjYuOS0xMi41IDIuMi0xOC44IDMuNy0yLjEuOC0zLjkgMi41LTQuNSA0LjYtLjEgMiAuNiA0LjMgMi4xIDUuNiA3LjIgNy41IDE3LjYgMTAuOSAyOC4xIDEwIDEyLjItMS4xIDIzLjktNS40IDMzLjktMTIuNnoiLz48cGF0aCBkPSJNODcuNiAxMDAuNmMtMTAgNy4yLTIxLjcgMTEuNi0zMy42IDEyLjctMTAuMyAxLjEtMjAuNy0yLjYtMjguMS0xMC0xLjUtMS42LTIuMi0zLjYtMi4xLTUuNi43LTIgMi40LTMuOCA0LjUtNC42IDYuMS0xLjQgMTIuNi0yLjggMTguOC0zLjcgMjEuNC0zLjMgMzUtMTMuNSAzOS41LTM1LjQgMS40LTcuMiAyLjgtMTMuNi0yLjQtMTkuOS0yLTIuNi0yLjUtNi4xLTMuNC05LjQtLjctMi4zIDAtMy42IDIuOC0zLjYgNi4xIDAgOS42IDIuMyAxMC40IDguNy42IDQuMyAyLjkgOC4xIDYuNyAxMC43IDkuNCA3LjUgMTEuOCAxNyA5IDI4LjQtMy45IDEzLjEtMTEuMiAyMy0yMi4xIDMxLjd6IiBmaWxsPSIjZjJkYTNkIi8+PC9nPjwvc3ZnPg==';
+const blockIconURI = 'data:image/svg+xml;base64,PHN2ZyBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTM0LjYgMTM0LjYiPjxzdHlsZT4uc3QwLC5zdDN7ZmlsbDojNmU2ZjcxfS5zdDN7ZGlzcGxheTppbmxpbmV9PC9zdHlsZT48ZyBpZD0iTGF5ZXJfMV8xXyI+PHBhdGggY2xhc3M9InN0MCIgZD0iTTQ5LjcgMTIwLjVjLTExLjEgMC0yMi01LTI5LTEzLjQtMy4zLTMuNy00LjUtOC4yLTMuMy0xMi40IDEuMy00LjIgNC44LTcuMyA5LjctOC41IDYuNC0xLjYgMTMuMi0yLjggMTkuNi0zLjYgMjEuNS0yLjUgMzQuNS0xNi42IDM1LTM3LjgtLjEtMS4yLS41LTIuNy0xLjMtNC41LS43LTEuOC0xLjUtMy41LTIuMy01LjItMS4zLTIuOC0yLjYtNS42LTMuNi04LjYtMS4yLTMuMi0uOS02LjIuNi04LjUgMS42LTIuMyA0LjUtMy42IDguMS0zLjZoMS4xYy4zIDAgLjcgMCAxLjEtLjEuNS0uMSAxLjEtLjEgMS43LS4xIDEgMCAxLjkuMiAyLjYuNmwuNi4zYzIuMi45IDQuOSAyLjEgNi4zIDQuM2wuMS4xYzEuMSAyLjEgMS45IDQuNCAyLjcgNi43LjYgMS44IDEuMiAzLjQgMS45IDUgMSAxLjkgMi43IDMuOCA0LjUgNS4xbC4xLjFjOS45IDguMyAxMy42IDE5LjIgMTAuOSAzMi4zLTIuNiAxNC4yLTEwLjUgMjYuNS0yMy42IDM2LjYtMTEuNyA5LjQtMjUuNyAxNC43LTQwLjUgMTUuMi0uOS0uMS0yIDAtMyAwek0yNi42IDk4LjNjMCAxLjQuNSAyLjYgMS4yIDMuMmwuMS4xLjEuMWM1LjggNiAxNCA5LjMgMjMgOS4zIDEgMCAyIDAgMy0uMSAxMS44LTEuMSAyMy4xLTUuMyAzMi42LTEyLjIgMTEuMi05IDE3LjgtMTguNiAyMC44LTMwLjMgMi44LTEwLjguMi0xOS04LjEtMjUuOS00LjItMy4yLTYuOC03LjUtNy41LTEyLjMtLjctNS0yLjYtNi41LTcuOC02LjVoLS41YzAgLjEgMCAuMi4xLjMuMy45LjYgMS45LjggMi45LjUgMi4xIDEuMSA0LjMgMi4xIDUuNiA2IDcuMyA0LjMgMTUuMSAyLjggMjJDODUgNzYuNyA3MS44IDg4LjYgNDcuOCA5MmMtNS43LjgtMTEuMiAxLjktMTguNCAzLjctMS40LjUtMi40IDEuNS0yLjggMi42eiIvPjxwYXRoIGNsYXNzPSJzdDAiIGQ9Ik05MS43IDEwMy4xYy0xMS4yIDktMjQuNyAxNC4yLTM5LjEgMTQuNy0xMS4zLjktMjIuNi0zLjYtMzAtMTIuNC01LjgtNi40LTMuMy0xNC43IDUuMS0xNi44QzM0IDg3IDQwLjYgODUuOCA0NyA4NS4xYzIyLjgtMi42IDM2LjgtMTcuNyAzNy4zLTQwLjQtLjEtMS45LS44LTMuOS0xLjUtNS41LTEuOS00LjYtNC4yLTktNS44LTEzLjYtMi01LjQgMS4xLTkgNi45LTguNyAxLjUuMiAzLjQtLjcgNC44LjEgMi4xLjkgNC44IDEuOSA1LjggMy42IDEuOSAzLjUgMi44IDcuOSA0LjUgMTEuNiAxLjMgMi40IDMuMiA0LjUgNS4yIDYgOS41IDcuOSAxMi41IDE3LjkgMTAuMSAyOS44LTIuNSAxMy42LTEwLjMgMjUuNS0yMi42IDM1LjF6bS0zLjUtMi4zYzEwLjgtOC43IDE4LjQtMTguNyAyMS43LTMxLjYgMy0xMS42LjMtMjAuOC05LTI4LjQtMy40LTIuNi02LTYuMi02LjctMTAuNy0uOS02LjYtNC4yLTguNy0xMC40LTguNy0yLjggMC0zLjUgMS4zLTIuOCAzLjYgMSAzLjEgMS41IDYuOSAzLjQgOS40IDUuMiA2LjMgMy45IDEyLjkgMi40IDE5LjlDODIuNSA3Ni4yIDY5IDg2LjQgNDcuNCA4OS41Yy02LjYuOS0xMi41IDIuMi0xOC44IDMuNy0yLjEuOC0zLjkgMi41LTQuNSA0LjYtLjEgMiAuNiA0LjMgMi4xIDUuNiA3LjIgNy41IDE3LjYgMTAuOSAyOC4xIDEwIDEyLjItMS4xIDIzLjktNS40IDMzLjktMTIuNnoiLz48cGF0aCBkPSJNODcuNiAxMDAuNmMtMTAgNy4yLTIxLjcgMTEuNi0zMy42IDEyLjctMTAuMyAxLjEtMjAuNy0yLjYtMjguMS0xMC0xLjUtMS42LTIuMi0zLjYtMi4xLTUuNi43LTIgMi40LTMuOCA0LjUtNC42IDYuMS0xLjQgMTIuNi0yLjggMTguOC0zLjcgMjEuNC0zLjMgMzUtMTMuNSAzOS41LTM1LjQgMS40LTcuMiAyLjgtMTMuNi0yLjQtMTkuOS0yLTIuNi0yLjUtNi4xLTMuNC05LjQtLjctMi4zIDAtMy42IDIuOC0zLjYgNi4xIDAgOS42IDIuMyAxMC40IDguNy42IDQuMyAyLjkgOC4xIDYuNyAxMC43IDkuNCA3LjUgMTEuOCAxNyA5IDI4LjQtMy45IDEzLjEtMTEuMiAyMy0yMi4xIDMxLjd6IiBmaWxsPSIjZjJkYTNkIi8+PC9nPjwvc3ZnPg==';
 
 const menuIconURI = blockIconURI;
 
@@ -48,22 +47,34 @@ class Scratch3MakeyMakeyBlocks {
                     }
                 },
                 {
-                    opcode: 'playSoundOnNote',
-                    text: 'play [SOUND] on note [NOTE]',
-                    blockType: BlockType.COMMAND,
+                    opcode: 'whenMakeyKeyReleased',
+                    text: 'when [KEY] key released',
+                    blockType: BlockType.HAT,
                     arguments: {
-                        SOUND: {
+                        KEY: {
                             type: ArgumentType.STRING,
-                            menu: 'SOUNDS',
-                            defaultValue: 'meow'
-                        },
-                        NOTE: {
-                            type: ArgumentType.STRING,
-                            menu: 'NOTES',
-                            defaultValue: 'C'
+                            menu: 'KEY',
+                            defaultValue: 'space'
                         }
                     }
                 }
+                // {
+                //     opcode: 'playSoundOnNote',
+                //     text: 'play [SOUND] on note [NOTE]',
+                //     blockType: BlockType.COMMAND,
+                //     arguments: {
+                //         SOUND: {
+                //             type: ArgumentType.STRING,
+                //             menu: 'SOUNDS',
+                //             defaultValue: this.getSounds()[0].value
+                //         },
+                //         NOTE: {
+                //             type: ArgumentType.STRING,
+                //             menu: 'NOTES',
+                //             defaultValue: '0'
+                //         }
+                //     }
+                // }
             ],
             menus: {
                 KEY: [
@@ -78,9 +89,18 @@ class Scratch3MakeyMakeyBlocks {
                     {text: 'd', value: 'd'},
                     {text: 'f', value: 'f'},
                     {text: 'g', value: 'g'}
-                ],
-                SOUNDS: 'getSounds',
-                NOTES: ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C2']
+                ]
+                // SOUNDS: 'getSounds',
+                // NOTES: [
+                //     {text: 'C', value: 0},
+                //     {text: 'D', value: 20},
+                //     {text: 'E', value: 40},
+                //     {text: 'F', value: 50},
+                //     {text: 'G', value: 70},
+                //     {text: 'A', value: 90},
+                //     {text: 'B', value: 110},
+                //     {text: 'C2', value: 120}
+                // ]
             }
         };
     }
@@ -104,12 +124,39 @@ class Scratch3MakeyMakeyBlocks {
         return this.keyRepeatFlags[args.KEY];
     }
 
-    playSoundOnNote (args, util) {
+    whenMakeyKeyReleased (args, util) {
+        return (!util.ioQuery('keyboard', 'getKeyIsDown', [args.KEY]));
     }
 
-    getSounds () {
-        const sounds = this.runtime._editingTarget.sprite.sounds;
-        return sounds.map(s => s.name);
-    }
+    // playSoundOnNote (args, util) {
+    //     const index = this.getSoundIndexByName(args.SOUND, util);
+    //     if (index >= 0) {
+    //         const soundId = util.target.sprite.sounds[index].soundId;
+    //         if (util.target.audioPlayer === null) return;
+    //         util.target.audioPlayer.setEffect('pitch', args.NOTE);
+    //         util.target.audioPlayer.playSound(soundId);
+    //     }
+    // }
+    //
+    // getSoundIndexByName (soundName, util) {
+    //     const sounds = util.target.sprite.sounds;
+    //     for (let i = 0; i < sounds.length; i++) {
+    //         if (sounds[i].name === soundName) {
+    //             return i;
+    //         }
+    //     }
+    //     // if there is no sound by that name, return -1
+    //     return -1;
+    // }
+    //
+    // getSounds () {
+    //     const sounds = this.runtime._editingTarget.sprite.sounds;
+    //     return sounds.map(sound => {
+    //         const obj = {};
+    //         obj.text = sound.name;
+    //         obj.value = sound.name;
+    //         return obj;
+    //     });
+    // }
 }
 module.exports = Scratch3MakeyMakeyBlocks;
