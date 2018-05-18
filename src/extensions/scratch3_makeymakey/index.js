@@ -22,7 +22,8 @@ const menuIconURI = blockIconURI;
 class Scratch3MakeyMakeyBlocks {
     constructor (runtime) {
         this.runtime = runtime;
-        this.keyRepeatFlags = {};
+        this.frameCounter = 0;
+        setInterval(() => this.frameCounter++, this.runtime.currentStepTime);
     }
     /**
      * @returns {object} metadata for this extension and its blocks.
@@ -36,7 +37,7 @@ class Scratch3MakeyMakeyBlocks {
             blocks: [
                 {
                     opcode: 'whenMakeyKeyPressed',
-                    text: 'when [KEY] key pressed',
+                    text: 'while [KEY] key held down',
                     blockType: BlockType.HAT,
                     arguments: {
                         KEY: {
@@ -58,23 +59,6 @@ class Scratch3MakeyMakeyBlocks {
                         }
                     }
                 }
-                // {
-                //     opcode: 'playSoundOnNote',
-                //     text: 'play [SOUND] on note [NOTE]',
-                //     blockType: BlockType.COMMAND,
-                //     arguments: {
-                //         SOUND: {
-                //             type: ArgumentType.STRING,
-                //             menu: 'SOUNDS',
-                //             defaultValue: this.getSounds()[0].value
-                //         },
-                //         NOTE: {
-                //             type: ArgumentType.STRING,
-                //             menu: 'NOTES',
-                //             defaultValue: '0'
-                //         }
-                //     }
-                // }
             ],
             menus: {
                 KEY: [
@@ -90,73 +74,17 @@ class Scratch3MakeyMakeyBlocks {
                     {text: 'f', value: 'f'},
                     {text: 'g', value: 'g'}
                 ]
-                // SOUNDS: 'getSounds',
-                // NOTES: [
-                //     {text: 'C', value: 0},
-                //     {text: 'D', value: 20},
-                //     {text: 'E', value: 40},
-                //     {text: 'F', value: 50},
-                //     {text: 'G', value: 70},
-                //     {text: 'A', value: 90},
-                //     {text: 'B', value: 110},
-                //     {text: 'C2', value: 120}
-                // ]
             }
         };
     }
+
     whenMakeyKeyPressed (args, util) {
-        if (typeof this.keyRepeatFlags[args.KEY] === 'undefined') {
-            this.keyRepeatFlags[args.KEY] = false;
-        }
-        // If the selected key is down, toggle its flag.
-        // This will cause the hat to trigger every other frame (15 per second).
-        // @todo: consider which of these options for key repeat to go with:
-        // A) Repeat immediately at 15 presses per second (current version)
-        // B) Repeat immediately at a lower rate (10fps?)
-        // C) Fire once, short delay, then repeat at some rate (simulating
-        //    typical OS level keyboard auto-repeat)
-        // D) Do not repeat
-        if (util.ioQuery('keyboard', 'getKeyIsDown', [args.KEY])) {
-            this.keyRepeatFlags[args.KEY] = !this.keyRepeatFlags[args.KEY];
-        } else {
-            this.keyRepeatFlags[args.KEY] = false;
-        }
-        return this.keyRepeatFlags[args.KEY];
+        const isDown = util.ioQuery('keyboard', 'getKeyIsDown', [args.KEY]);
+        return isDown && (this.frameCounter % 2 === 0);
     }
 
     whenMakeyKeyReleased (args, util) {
         return (!util.ioQuery('keyboard', 'getKeyIsDown', [args.KEY]));
     }
-
-    // playSoundOnNote (args, util) {
-    //     const index = this.getSoundIndexByName(args.SOUND, util);
-    //     if (index >= 0) {
-    //         const soundId = util.target.sprite.sounds[index].soundId;
-    //         if (util.target.audioPlayer === null) return;
-    //         util.target.audioPlayer.setEffect('pitch', args.NOTE);
-    //         util.target.audioPlayer.playSound(soundId);
-    //     }
-    // }
-    //
-    // getSoundIndexByName (soundName, util) {
-    //     const sounds = util.target.sprite.sounds;
-    //     for (let i = 0; i < sounds.length; i++) {
-    //         if (sounds[i].name === soundName) {
-    //             return i;
-    //         }
-    //     }
-    //     // if there is no sound by that name, return -1
-    //     return -1;
-    // }
-    //
-    // getSounds () {
-    //     const sounds = this.runtime._editingTarget.sprite.sounds;
-    //     return sounds.map(sound => {
-    //         const obj = {};
-    //         obj.text = sound.name;
-    //         obj.value = sound.name;
-    //         return obj;
-    //     });
-    // }
 }
 module.exports = Scratch3MakeyMakeyBlocks;
