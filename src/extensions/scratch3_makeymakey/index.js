@@ -153,6 +153,7 @@ class Scratch3MakeyMakeyBlocks {
             case 'right': return 'right arrow';
             case 'down': return 'down arrow';
             case 'up': return 'up arrow';
+            case 'space': return 'space';
             }
             return entry.toUpperCase();
         });
