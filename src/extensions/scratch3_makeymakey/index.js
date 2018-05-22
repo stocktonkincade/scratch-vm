@@ -23,19 +23,15 @@ class Scratch3MakeyMakeyBlocks {
 
         this.keyPressed = this.keyPressed.bind(this);
         this.runtime.on('KEY_PRESSED', this.keyPressed);
-        this.keyReleased = this.keyReleased.bind(this);
-        this.runtime.on('KEY_RELEASED', this.keyReleased);
 
         this.sequenceMenu = [
             {text: 'left down right up', value: 'left down right up'},
             {text: 'up up down down left right left right', value: 'up up down down left right left right'},
-            {text: '← ↓ → ↑', value: '← ↓ → ↑'},
-            {text: '↑ ↑ ↓ ↓ ← → ← →', value: '↑ ↑ ↓ ↓ ← → ← →'},
-            {text: 'm a k e y', value: 'm a k e y'}
+            {text: 'm a k e y', value: 'm a k e y'},
+            {text: 's c r a t c h', value: 's c r a t c h'}
         ];
-        this.sequenceIndex = 0;
-
         this.sequences = {};
+        this.keyPressBuffer = [];
     }
     /**
      * @returns {object} metadata for this extension and its blocks.
@@ -104,36 +100,6 @@ class Scratch3MakeyMakeyBlocks {
         };
     }
 
-    keyPressed (key) {
-        for (const str in this.sequences) {
-            const index = this.sequences[str].index;
-            console.log('key', this.sequences[str].array[index]);
-            if (this.sequences[str].array[index] === key) {
-                this.sequences[str].index++;
-            }
-        }
-    }
-
-    keyReleased (key) {
-        for (const str in this.sequences) {
-            const index = this.sequences[str].index;
-            if (this.sequences[str].array[index] === '\n') {
-                if (this.sequences[str].array[index - 1] === key) {
-                    this.sequences[str].index++;
-                    console.log('index',this.sequences[str].index);
-                    if (this.sequences[str].index === this.sequences[str].array.length) {
-                        this.sequences[str].completed = true;
-                        console.log('completed');
-                        setTimeout(() => {
-                            console.log('uncompleted');
-                            this.sequences[str].completed = false;
-                        }, 100);
-                    }
-                }
-            }
-        }
-    }
-
     whenMakeyKeyPressed (args, util) {
         const isDown = this.isKeyDown(args.KEY, util);
         return isDown && (this.frameCounter % 2 === 0);
@@ -143,36 +109,51 @@ class Scratch3MakeyMakeyBlocks {
         return !this.isKeyDown(args.KEY, util);
     }
 
+    keyPressed (key) {
+        this.keyPressBuffer.push(key);
+        if (this.keyPressBuffer.length > 100) {
+            this.keyPressBuffer.shift();
+        }
+        for (const str in this.sequences) {
+            const arr = this.sequences[str].array;
+            if (this.keyPressBuffer.length < arr.length) {
+                continue;
+            }
+            let missFlag = false;
+            const bufferSegment = this.keyPressBuffer.slice(-1 * arr.length);
+            for (let i = 0; i < arr.length; i++) {
+                if (arr[i] !== bufferSegment[i]) {
+                    missFlag = true;
+                }
+            }
+            if (!missFlag) {
+                this.sequences[str].completed = true;
+                setTimeout(() => {
+                    this.sequences[str].completed = false;
+                }, 100);
+            }
+        }
+    }
+
     addSequence (sequenceString, sequenceArray) {
         // If we already have this sequence string, return.
         if (this.sequences.hasOwnProperty(sequenceString)) {
             return;
         }
         // Convert shorthand versions of arrow key names.
-        let newArray = sequenceArray.map(entry => {
+        const newArray = sequenceArray.map(entry => {
             switch (entry) {
             case 'left': return 'left arrow';
             case 'right': return 'right arrow';
             case 'down': return 'down arrow';
             case 'up': return 'up arrow';
             }
-            return entry;
+            return entry.toUpperCase();
         });
-        // Insert special character between each array entry
-        newArray = newArray.reduce((result, element, index, array) => {
-            result.push(element);
-            if (index < array.length) {
-                result.push('\n');
-            }
-            return result;
-        }, []);
-        // Add the new sequence
         const newSeq = {};
         newSeq.array = newArray;
-        newSeq.index = 0;
         newSeq.completed = false;
         this.sequences[sequenceString] = newSeq;
-        console.log(this.sequences)
     }
 
     whenCodePressed (args) {
@@ -184,41 +165,6 @@ class Scratch3MakeyMakeyBlocks {
         this.addSequence(sequenceString, sequenceArray);
 
         return this.sequences[sequenceString].completed;
-        /*
-        // Build sequence array from arg string
-        let sequence = Cast.toString(args.SEQUENCE).split('');
-        // Convert to key names
-        sequence = sequence.map(char => {
-            switch (char) {
-            case '←': return 'left arrow';
-            case '→': return 'right arrow';
-            case '↓': return 'down arrow';
-            case '↑': return 'up arrow';
-            }
-            return char;
-        });
-
-        // Check if previous key in the sequence is released
-        if (this.sequenceIndex > 0 && sequence[this.sequenceIndex] === ' ') {
-            if (!this.isKeyDown(sequence[this.sequenceIndex - 1], util)) {
-                this.sequenceIndex++;
-            }
-            return false;
-        }
-        // Check if the current key in the sequence is pressed
-        if (this.isKeyDown(sequence[this.sequenceIndex], util)) {
-            this.sequenceIndex++;
-        } else if (this.isKeyDown('any', util)) {
-            // If a key that's not the current sequence key is pressed, reset
-            this.sequenceIndex = 0;
-        }
-        // Check for the completed sequence
-        if (this.sequenceIndex === sequence.length) {
-            this.sequenceIndex = 0;
-            return true;
-        }
-        return false;
-        */
     }
 
     isKeyDown (keyArg, util) {
