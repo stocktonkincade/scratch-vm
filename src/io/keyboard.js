@@ -121,7 +121,15 @@ class Keyboard {
             if (index < 0) {
                 this._keysPressed.push(scratchKey);
             }
+            // Always trigger hats, even if it was already pressed.
+            this.runtime.startHats('event_whenkeypressed', {
+                KEY_OPTION: scratchKey
+            });
+            this.runtime.startHats('event_whenkeypressed', {
+                KEY_OPTION: 'any'
+            });
         } else if (index > -1) {
+            this.runtime.emit('KEY_RELEASED', scratchKey);
             // If already present, remove from the list.
             this._keysPressed.splice(index, 1);
         }
