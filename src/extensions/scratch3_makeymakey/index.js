@@ -109,17 +109,21 @@ class Scratch3MakeyMakeyBlocks {
     }
 
     whenKonamiCodePressed (args, util) {
+        // Check if previous key in the sequence is released
         if (this.konamiArray[this.konamiIndex] === '') {
             if (!this.isKeyDown(this.konamiArray[this.konamiIndex - 1], util)) {
                 this.konamiIndex++;
             }
             return false;
         }
+        // Check if the current key in the sequence is pressed
         if (this.isKeyDown(this.konamiArray[this.konamiIndex], util)) {
             this.konamiIndex++;
         } else if (this.isKeyDown('any', util)) {
+            // If a key that's not the current sequence key is pressed, reset
             this.konamiIndex = 0;
         }
+        // Check for the completed sequence
         if (this.konamiIndex === this.konamiArray.length) {
             this.konamiIndex = 0;
             return true;
