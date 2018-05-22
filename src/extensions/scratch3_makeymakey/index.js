@@ -180,15 +180,10 @@ class Scratch3MakeyMakeyBlocks {
 
     glitch () {
         for (const t of this.runtime.targets) {
-            // t.setSize(t.size + this.glitchRand(10));
-            // const xChange = this.glitchRand(10);
-            // const yChange = this.glitchRand(10);
-            // t.setXY(t.x + xChange, t.y + yChange, false);
-            // t.setDirection(t.direction + this.glitchRand(15));
-            t.setEffect('color', this.glitchRand(10) + t.effects['color']);
-            t.setEffect('pixelate', this.glitchRand(5) + t.effects['pixelate']);
-            t.setEffect('fisheye', this.glitchRand(10) + t.effects['fisheye']);
-            t.setEffect('whirl', this.glitchRand(10) + t.effects['whirl']);
+            t.setEffect('color', this.glitchRand(10) + t.effects.color);
+            t.setEffect('pixelate', this.glitchRand(5) + t.effects.pixelate);
+            t.setEffect('fisheye', this.glitchRand(10) + t.effects.fisheye);
+            t.setEffect('whirl', this.glitchRand(10) + t.effects.whirl);
         }
     }
 
