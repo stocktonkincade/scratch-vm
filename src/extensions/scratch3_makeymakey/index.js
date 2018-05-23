@@ -81,8 +81,15 @@ class Scratch3MakeyMakeyBlocks {
                 },
                 {
                     opcode: 'glitch',
-                    text: 'glitch',
-                    blockType: BlockType.COMMAND
+                    text: 'glitch [OPTION]',
+                    blockType: BlockType.COMMAND,
+                    arguments: {
+                        OPTION: {
+                            type: ArgumentType.STRING,
+                            menu: 'THIS_OR_ALL',
+                            defaultValue: 'this sprite'
+                        }
+                    }
                 }
 
 
@@ -101,7 +108,11 @@ class Scratch3MakeyMakeyBlocks {
                     {text: 'f', value: 'f'},
                     {text: 'g', value: 'g'}
                 ],
-                SEQUENCE: this.sequenceMenu
+                SEQUENCE: this.sequenceMenu,
+                THIS_OR_ALL: [
+                    {text: 'this sprite', value: 'this sprite'},
+                    {text: 'everything', value: 'everything'}
+                ]
             }
         };
     }
@@ -178,12 +189,16 @@ class Scratch3MakeyMakeyBlocks {
         return util.ioQuery('keyboard', 'getKeyIsDown', [keyArg]);
     }
 
-    glitch () {
-        for (const t of this.runtime.targets) {
-            t.setEffect('color', this.glitchRand(10) + t.effects.color);
-            t.setEffect('pixelate', this.glitchRand(5) + t.effects.pixelate);
-            t.setEffect('fisheye', this.glitchRand(10) + t.effects.fisheye);
-            t.setEffect('whirl', this.glitchRand(10) + t.effects.whirl);
+    glitch (args, util) {
+        let targets = [util.target];
+        if (args.OPTION === 'everything') {
+            targets = this.runtime.targets;
+        }
+        for (const t of targets) {
+            t.setEffect('color', this.glitchRand(200));
+            t.setEffect('pixelate', this.glitchRand(100));
+            t.setEffect('fisheye', this.glitchRand(200));
+            t.setEffect('whirl', this.glitchRand(200));
         }
     }
 
