@@ -25,7 +25,7 @@ class Scratch3MakeyMakeyBlocks {
         this.runtime.on('KEY_PRESSED', this.keyPressed);
 
         this.sequenceMenu = [
-            {text: 'left down right up', value: 'left down right up'},
+            {text: 'down right up', value: 'down right up'},
             {text: 'up up down down left right left right', value: 'up up down down left right left right'},
             {text: 'm a k e y', value: 'm a k e y'},
             {text: 's c r a t c h', value: 's c r a t c h'}
