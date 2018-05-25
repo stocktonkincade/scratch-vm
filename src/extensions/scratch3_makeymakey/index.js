@@ -69,7 +69,7 @@ class Scratch3MakeyMakeyBlocks {
                 },
                 {
                     opcode: 'whenCodePressed',
-                    text: 'when [SEQUENCE] pressed',
+                    text: 'when [SEQUENCE] pressed in order',
                     blockType: BlockType.HAT,
                     arguments: {
                         SEQUENCE: {
