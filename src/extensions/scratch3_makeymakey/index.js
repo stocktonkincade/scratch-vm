@@ -2,6 +2,8 @@ const ArgumentType = require('../../extension-support/argument-type');
 const BlockType = require('../../extension-support/block-type');
 const Cast = require('../../util/cast');
 
+const handClap = require('!arraybuffer-loader!./assets/drums/8-hand-clap.mp3');
+
 /**
  * Icon svg to be displayed at the left edge of each extension block, encoded as a data URI.
  * @type {string}
@@ -32,6 +34,37 @@ class Scratch3MakeyMakeyBlocks {
         ];
         this.sequences = {};
         this.keyPressBuffer = [];
+
+        this._decodeSound(handClap).then(buffer => {
+            this.handClapBuffer = buffer;
+            console.log(this.handClapBuffer);
+        });
+    }
+
+    /**
+     * Decode a sound and return a promise with the audio buffer.
+     * @param  {ArrayBuffer} soundBuffer - a buffer containing the encoded audio.
+     * @return {Promise} - a promise which will resolve once the sound has decoded.
+     */
+    _decodeSound (soundBuffer) {
+        const context = this.runtime.audioEngine && this.runtime.audioEngine.audioContext;
+
+        if (!context) {
+            return Promise.reject(new Error('No Audio Context Detected'));
+        }
+
+        // Check for newer promise-based API
+        if (context.decodeAudioData.length === 1) {
+            return context.decodeAudioData(soundBuffer);
+        } else { // eslint-disable-line no-else-return
+            // Fall back to callback API
+            return new Promise((resolve, reject) =>
+                context.decodeAudioData(soundBuffer,
+                    buffer => resolve(buffer),
+                    error => reject(error)
+                )
+            );
+        }
     }
     /**
      * @returns {object} metadata for this extension and its blocks.
