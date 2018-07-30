@@ -27,17 +27,15 @@ class Scratch3MakeyMakeyBlocks {
         this.runtime.on('KEY_PRESSED', this.keyPressed);
 
         this.sequenceMenu = [
-            {text: 'down right up', value: 'down right up'},
-            {text: 'up up down down left right left right', value: 'up up down down left right left right'},
-            {text: 'm a k e y', value: 'm a k e y'},
-            {text: 's c r a t c h', value: 's c r a t c h'}
+            {text: 'left up right', value: 'left up right'},
+            {text: 'right up left', value: 'right up left'},
+            {text: 'up up down down left right left right', value: 'up up down down left right left right'}
         ];
         this.sequences = {};
         this.keyPressBuffer = [];
 
         this._decodeSound(handClap).then(buffer => {
             this.handClapBuffer = buffer;
-            console.log(this.handClapBuffer);
         });
     }
 
@@ -78,7 +76,7 @@ class Scratch3MakeyMakeyBlocks {
             blocks: [
                 {
                     opcode: 'whenMakeyKeyPressed',
-                    text: 'while [KEY] key held down',
+                    text: 'while [KEY] key pressed',
                     blockType: BlockType.HAT,
                     arguments: {
                         KEY: {
