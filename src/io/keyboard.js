@@ -116,7 +116,6 @@ class Keyboard {
         if (scratchKey === '') return;
         const index = this._keysPressed.indexOf(scratchKey);
         if (data.isDown) {
-            this.runtime.emit('KEY_PRESSED', scratchKey);
             // If not already present, add to the list.
             if (index < 0) {
                 this._keysPressed.push(scratchKey);
