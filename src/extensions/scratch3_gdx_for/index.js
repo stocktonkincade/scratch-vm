@@ -423,6 +423,35 @@ class Scratch3GdxForBlocks {
             showStatusButton: true,
             blocks: [
                 {
+                    opcode: 'whenForceCompare',
+                    text: formatMessage({
+                        id: 'gdxfor.whenForceCompare',
+                        default: 'when force [COMPARE] [VALUE]',
+                        description: 'when the value measured by the force sensor is compared to some value'
+                    }),
+                    blockType: BlockType.HAT,
+                    arguments: {
+                        COMPARE: {
+                            type: ArgumentType.STRING,
+                            menu: 'compareOptions',
+                            defaultValue: ComparisonOptions.GREATER_THAN
+                        },
+                        VALUE: {
+                            type: ArgumentType.NUMBER,
+                            defaultValue: 5
+                        }
+                    }
+                },
+                {
+                    opcode: 'getForce',
+                    text: formatMessage({
+                        id: 'gdxfor.getForce',
+                        default: 'force',
+                        description: 'gets force'
+                    }),
+                    blockType: BlockType.REPORTER
+                },
+                {
                     opcode: 'whenAccelerationCompare',
                     text: formatMessage({
                         id: 'gdxfor.whenAccelerationCompare',
@@ -465,31 +494,11 @@ class Scratch3GdxForBlocks {
                     }
                 },
                 {
-                    opcode: 'whenForceCompare',
+                    opcode: 'whenFreeFalling',
                     text: formatMessage({
-                        id: 'gdxfor.whenForceCompare',
-                        default: 'when force [COMPARE] [VALUE]',
-                        description: 'when the value measured by the force sensor is compared to some value'
-                    }),
-                    blockType: BlockType.HAT,
-                    arguments: {
-                        COMPARE: {
-                            type: ArgumentType.STRING,
-                            menu: 'compareOptions',
-                            defaultValue: ComparisonOptions.GREATER_THAN
-                        },
-                        VALUE: {
-                            type: ArgumentType.NUMBER,
-                            defaultValue: 5
-                        }
-                    }
-                },
-                {
-                    opcode: 'whenJumped',
-                    text: formatMessage({
-                        id: 'gdxfor.whenJumped',
-                        default: 'when jumped',
-                        description: 'when the device has jumped'
+                        id: 'gdxfor.whenFreeFalling',
+                        default: 'when free falling',
+                        description: 'when the device is in free fall'
                     }),
                     blockType: BlockType.HAT
                 },
@@ -540,15 +549,6 @@ class Scratch3GdxForBlocks {
                             defaultValue: 'x'
                         }
                     }
-                },
-                {
-                    opcode: 'getForce',
-                    text: formatMessage({
-                        id: 'gdxfor.getForce',
-                        default: 'force',
-                        description: 'gets force'
-                    }),
-                    blockType: BlockType.REPORTER
                 },
                 {
                     opcode: 'isFacing',
@@ -616,7 +616,7 @@ class Scratch3GdxForBlocks {
             return false;
         }
     }
-    whenJumped () {
+    whenFreeFalling () {
         return this.isFreeFalling();
     }
     whenSpinSpeedCompare (args) {
