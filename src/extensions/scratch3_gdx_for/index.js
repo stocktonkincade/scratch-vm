@@ -27,6 +27,12 @@ const BLEUUID = {
 };
 
 /**
+ * Scratch default frame rate.
+ * @type {number}
+ */
+const FRAMES_PER_SEC = 30;
+
+/**
  * Manage communication with a GDX-FOR peripheral over a Scratch Link client socket.
  */
 class GdxFor {
@@ -280,24 +286,24 @@ class GdxFor {
     }
 
     getSpinSpeedX () {
-        if (this.isConnected()) {
-            return this._device.getSensor(5).value * (180 / Math.PI);
-        }
-        return 0;
+        return this._getSpinSpeed(5);
     }
 
     getSpinSpeedY () {
-        if (this.isConnected()) {
-            return this._device.getSensor(6).value * (180 / Math.PI);
-        }
-        return 0;
+        return this._getSpinSpeed(6);
     }
 
     getSpinSpeedZ () {
-        if (this.isConnected()) {
-            return this._device.getSensor(7).value * (180 / Math.PI);
-        }
-        return 0;
+        return this._getSpinSpeed(7);
+    }
+
+    _getSpinSpeed (axisNum) {
+        if (!this.isConnected()) return 0;
+        let val = this._device.getSensor(axisNum).value;
+        val *= 180 / Math.PI; // Convert from radians to degrees
+        val /= FRAMES_PER_SEC; // Convert from degrees per sec to degrees per frame
+        val *= -1;
+        return val;
     }
 }
 
