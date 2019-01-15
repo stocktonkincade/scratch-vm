@@ -163,7 +163,7 @@ class GdxFor {
         return 0;
     }
 
-    getTiltX () {
+    getTiltY () {
         if (this.isConnected()) {
             let x = this.getAccelerationX();
             let y = this.getAccelerationY();
@@ -208,12 +208,12 @@ class GdxFor {
             value *= xSign;
             // Round the result to the nearest degree
             value += 0.5;
-            return value;
+            return value * -1;
         }
         return 0;
     }
 
-    getTiltY () {
+    getTiltX () {
         if (this.isConnected()) {
             let x = this.getAccelerationX();
             let y = this.getAccelerationY();
@@ -258,7 +258,7 @@ class GdxFor {
             value *= ySign;
             // Round the result to the nearest degree
             value += 0.5;
-            return value;
+            return value * -1;
         }
         return 0;
     }
