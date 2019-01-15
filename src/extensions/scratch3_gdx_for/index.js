@@ -158,7 +158,9 @@ class GdxFor {
             // Normalize the force, which can be measured between -50 and 50 N,
             // to be a value between -100 and 100.
             force = MathUtil.clamp(force * 2, -100, 100);
-            return force * -1;
+            force *= -1;
+            force = Math.round(force);
+            return force;
         }
         return 0;
     }
@@ -207,7 +209,7 @@ class GdxFor {
             if (yzSign === -1) value = 180.0 - value;
             value *= xSign;
             // Round the result to the nearest degree
-            value += 0.5;
+            value = Math.round(value);
             return value * -1;
         }
         return 0;
@@ -257,7 +259,7 @@ class GdxFor {
             if (xzSign === -1) value = 180.0 - value;
             value *= ySign;
             // Round the result to the nearest degree
-            value += 0.5;
+            value = Math.round(value);
             return value * -1;
         }
         return 0;
@@ -265,24 +267,22 @@ class GdxFor {
 
 
     getAccelerationX () {
-        if (this.isConnected()) {
-            return this._device.getSensor(2).value;
-        }
-        return 0;
+        return this._getAcceleration(2);
     }
 
     getAccelerationY () {
-        if (this.isConnected()) {
-            return this._device.getSensor(3).value;
-        }
-        return 0;
+        return this._getAcceleration(3);
     }
 
     getAccelerationZ () {
-        if (this.isConnected()) {
-            return this._device.getSensor(4).value;
-        }
-        return 0;
+        return this._getAcceleration(4);
+    }
+
+    _getAcceleration (sensorNum) {
+        if (!this.isConnected()) return 0;
+        let val = this._device.getSensor(sensorNum).value;
+        val = Math.round(val);
+        return val;
     }
 
     getSpinSpeedX () {
@@ -297,12 +297,13 @@ class GdxFor {
         return this._getSpinSpeed(7);
     }
 
-    _getSpinSpeed (axisNum) {
+    _getSpinSpeed (sensorNum) {
         if (!this.isConnected()) return 0;
-        let val = this._device.getSensor(axisNum).value;
+        let val = this._device.getSensor(sensorNum).value;
         val *= 180 / Math.PI; // Convert from radians to degrees
         val /= FRAMES_PER_SEC; // Convert from degrees per sec to degrees per frame
         val *= -1;
+        val = Math.round(val);
         return val;
     }
 }
