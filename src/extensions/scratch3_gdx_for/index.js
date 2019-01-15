@@ -158,7 +158,7 @@ class GdxFor {
             // Normalize the force, which can be measured between -50 and 50 N,
             // to be a value between -100 and 100.
             force = MathUtil.clamp(force * 2, -100, 100);
-            return force;
+            return force * -1;
         }
         return 0;
     }
