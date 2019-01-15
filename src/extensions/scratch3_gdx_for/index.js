@@ -442,6 +442,7 @@ class Scratch3GdxForBlocks {
                     }),
                     blockType: BlockType.REPORTER
                 },
+                '---',
                 {
                     opcode: 'whenAccelerationCompare',
                     text: formatMessage({
@@ -464,57 +465,11 @@ class Scratch3GdxForBlocks {
                     }
                 },
                 {
-                    opcode: 'whenSpinSpeedCompare',
-                    text: formatMessage({
-                        id: 'gdxfor.whenSpinSpeedCompare',
-                        default: 'when spin speed [COMPARE] [VALUE]',
-                        description: 'when the degrees/second value measured by the ' +
-                            'gyroscope sensor is compared to some value'
-                    }),
-                    blockType: BlockType.HAT,
-                    arguments: {
-                        COMPARE: {
-                            type: ArgumentType.STRING,
-                            menu: 'compareOptions',
-                            defaultValue: ComparisonOptions.GREATER_THAN
-                        },
-                        VALUE: {
-                            type: ArgumentType.NUMBER,
-                            defaultValue: 5
-                        }
-                    }
-                },
-                {
-                    opcode: 'whenFreeFalling',
-                    text: formatMessage({
-                        id: 'gdxfor.whenFreeFalling',
-                        default: 'when free falling',
-                        description: 'when the device is in free fall'
-                    }),
-                    blockType: BlockType.HAT
-                },
-                {
                     opcode: 'getAcceleration',
                     text: formatMessage({
                         id: 'gdxfor.getAcceleration',
                         default: 'acceleration [DIRECTION]',
                         description: 'gets acceleration'
-                    }),
-                    blockType: BlockType.REPORTER,
-                    arguments: {
-                        DIRECTION: {
-                            type: ArgumentType.STRING,
-                            menu: 'directionOptions',
-                            defaultValue: 'x'
-                        }
-                    }
-                },
-                {
-                    opcode: 'getSpinSpeed',
-                    text: formatMessage({
-                        id: 'gdxfor.getSpinSpeed',
-                        default: 'spin speed [DIRECTION]',
-                        description: 'gets spin speed'
                     }),
                     blockType: BlockType.REPORTER,
                     arguments: {
@@ -541,6 +496,64 @@ class Scratch3GdxForBlocks {
                         }
                     }
                 },
+                '---',
+                {
+                    opcode: 'whenSpinSpeedCompare',
+                    text: formatMessage({
+                        id: 'gdxfor.whenSpinSpeedCompare',
+                        default: 'when spin speed [COMPARE] [VALUE]',
+                        description: 'when the degrees/second value measured by the ' +
+                            'gyroscope sensor is compared to some value'
+                    }),
+                    blockType: BlockType.HAT,
+                    arguments: {
+                        COMPARE: {
+                            type: ArgumentType.STRING,
+                            menu: 'compareOptions',
+                            defaultValue: ComparisonOptions.GREATER_THAN
+                        },
+                        VALUE: {
+                            type: ArgumentType.NUMBER,
+                            defaultValue: 5
+                        }
+                    }
+                },
+                {
+                    opcode: 'getSpinSpeed',
+                    text: formatMessage({
+                        id: 'gdxfor.getSpinSpeed',
+                        default: 'spin speed [DIRECTION]',
+                        description: 'gets spin speed'
+                    }),
+                    blockType: BlockType.REPORTER,
+                    arguments: {
+                        DIRECTION: {
+                            type: ArgumentType.STRING,
+                            menu: 'directionOptions',
+                            defaultValue: 'x'
+                        }
+                    }
+                },
+                '---',
+                {
+                    opcode: 'whenFreeFalling',
+                    text: formatMessage({
+                        id: 'gdxfor.whenFreeFalling',
+                        default: 'when free falling',
+                        description: 'when the device is in free fall'
+                    }),
+                    blockType: BlockType.HAT
+                },
+                {
+                    opcode: 'isFreeFalling',
+                    text: formatMessage({
+                        id: 'gdxfor.isFreeFalling',
+                        default: 'free falling?',
+                        description: 'is the device in freefall?'
+                    }),
+                    blockType: BlockType.BOOLEAN
+                },
+                '---',
                 {
                     opcode: 'isFacing',
                     text: formatMessage({
@@ -556,16 +569,6 @@ class Scratch3GdxForBlocks {
                             defaultValue: 'up'
                         }
                     }
-                },
-                {
-                    opcode: 'isFreeFalling',
-                    text: formatMessage({
-                        id: 'gdxfor.isFreeFalling',
-                        default: 'free falling?',
-                        description: 'is the device in freefall?'
-                    }),
-                    blockType: BlockType.BOOLEAN
-
                 }
             ],
             menus: {
