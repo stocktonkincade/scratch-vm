@@ -701,8 +701,27 @@ class Scratch3GdxForBlocks {
             this._peripheral.getAccelerationY(),
             this._peripheral.getAccelerationZ()
         );
+        const currentSpinMag = this.magnitude(
+            this._peripheral.getSpinSpeedX(),
+            this._peripheral.getSpinSpeedY(),
+            this._peripheral.getSpinSpeedZ()
+        );
 
-        return currentVal < .5;
+        // We want to account for rotation during freefall,
+        // so we tack on a an estimated "rotational effect"
+        // The spinFactor const is used to both scale the magnitude
+        // of the gyro measurements and convert them to radians/second.
+        // It is computed from (0.5 * Math.PI / 180)
+        // Where 0.3 was determined experimentally
+        const spinFactor = (0.3 * Math.PI / 180);
+        // The ffThresh const is what we compare our accel magnitude
+        // against to judge if the device is in free fall.
+        // The ideal is 0, but 0.5 allows for inevitable noise.
+        const ffThresh = 0.5;
+        let thresh = 0;
+        thresh = ((spinFactor * currentSpinMag) + ffThresh);
+
+        return currentVal < thresh;
     }
 }
 
