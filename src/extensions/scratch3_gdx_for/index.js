@@ -165,7 +165,7 @@ class GdxFor {
         return 0;
     }
 
-    getTiltY () {
+    getTiltZ () {
         if (this.isConnected()) {
             let x = this.getAccelerationX();
             let y = this.getAccelerationY();
@@ -186,9 +186,63 @@ class GdxFor {
             }
 
             // Compute the yz unit vector
+            const x2 = x * x;
+            const y2 = y * y;
+            let value = x2 + y2;
+            value = Math.sqrt(value);
+
+            // For sufficiently small zy vector values we are essentially at 90 degrees.
+            // The following snaps to 90 and avoids divide-by-zero errors.
+            // The snap factor was derived through observation -- just enough to
+            // still allow single degree steps up to 90 (..., 87, 88, 89, 90).
+            if (value < 0.35) {
+                value = 90;
+            } else {
+                // Compute the x-axis angle
+                value = z / value;
+                value = Math.atan(value);
+                value *= 57.2957795; // convert from rad to deg
+            }
+
+            // Manage the sign of the result
+            let yxSign = ySign;
+            if (x > y) yxSign = xSign;
+            if (yxSign === -1) value = 180.0 - value;
+            value *= zSign;
+
+            // Round the result to the nearest degree
+            value = Math.round(value);
+            return value;
+        }
+        return 0;
+    }
+
+    getTiltX () {
+        if (this.isConnected()) {
+            let x = this.getAccelerationX(false);
+            let y = this.getAccelerationY(false);
+            let z = this.getAccelerationZ(false);
+
+            // Compute the yz unit vector
             const z2 = z * z;
             const y2 = y * y;
             let value = z2 + y2;
+
+            let xSign = 1;
+            let ySign = 1;
+            let zSign = 1;
+            
+            if (x < 0.0) {
+                x *= -1.0; xSign = -1;
+            }
+            if (y < 0.0) {
+                y *= -1.0; ySign = -1;
+            }
+            if (z < 0.0) {
+                z *= -1.0; zSign = -1;
+            }
+
+            // magnitude of z and y components
             value = Math.sqrt(value);
 
             // For sufficiently small zy vector values we are essentially at 90 degrees.
@@ -203,19 +257,26 @@ class GdxFor {
                 value = Math.atan(value);
                 value *= 57.2957795; // convert from rad to deg
             }
+
             // Manage the sign of the result
             let yzSign = ySign;
             if (z > y) yzSign = zSign;
             if (yzSign === -1) value = 180.0 - value;
             value *= xSign;
+
+            // eslint-disable-next-line no-console
+            console.log('TiltX', value, 'x_acc:', x, 'y_acc:', y, 'z_acc:', z, 'denom:', Math.sqrt(z2 + y2));
+            // eslint-disable-next-line no-console
+            console.log('signs: x:', xSign, 'y:', ySign, 'z:', zSign);
+
             // Round the result to the nearest degree
             value = Math.round(value);
-            return value * -1;
+            return value;
         }
         return 0;
     }
 
-    getTiltX () {
+    getTiltY () {
         if (this.isConnected()) {
             let x = this.getAccelerationX();
             let y = this.getAccelerationY();
@@ -253,57 +314,59 @@ class GdxFor {
                 value = Math.atan(value);
                 value *= 57.2957795; // convert from rad to deg
             }
+
             // Manage the sign of the result
             let xzSign = xSign;
             if (z > x) xzSign = zSign;
             if (xzSign === -1) value = 180.0 - value;
             value *= ySign;
+
             // Round the result to the nearest degree
             value = Math.round(value);
-            return value * -1;
+            return value;
         }
         return 0;
     }
 
 
-    getAccelerationX () {
-        return this._getAcceleration(2);
+    getAccelerationX (round = true) {
+        return this._getAcceleration(2, round);
     }
 
-    getAccelerationY () {
-        return this._getAcceleration(3);
+    getAccelerationY (round = true) {
+        return this._getAcceleration(3, round);
     }
 
-    getAccelerationZ () {
-        return this._getAcceleration(4);
+    getAccelerationZ (round = true) {
+        return this._getAcceleration(4, round);
     }
 
-    _getAcceleration (sensorNum) {
+    _getAcceleration (sensorNum, round = true) {
         if (!this.isConnected()) return 0;
         let val = this._device.getSensor(sensorNum).value;
-        val = Math.round(val);
+        if (round) val = Math.round(val);
         return val;
     }
 
-    getSpinSpeedX () {
-        return this._getSpinSpeed(5);
+    getSpinSpeedX (round = true) {
+        return this._getSpinSpeed(5, round);
     }
 
-    getSpinSpeedY () {
-        return this._getSpinSpeed(6);
+    getSpinSpeedY (round = true) {
+        return this._getSpinSpeed(6, round);
     }
 
-    getSpinSpeedZ () {
-        return this._getSpinSpeed(7);
+    getSpinSpeedZ (round = true) {
+        return this._getSpinSpeed(7, round);
     }
 
-    _getSpinSpeed (sensorNum) {
+    _getSpinSpeed (sensorNum, round = true) {
         if (!this.isConnected()) return 0;
         let val = this._device.getSensor(sensorNum).value;
         val *= 180 / Math.PI; // Convert from radians to degrees
         val /= FRAMES_PER_SEC; // Convert from degrees per sec to degrees per frame
         val *= -1;
-        val = Math.round(val);
+        if (round) val = Math.round(val);
         return val;
     }
 }
@@ -363,6 +426,10 @@ class Scratch3GdxForBlocks {
             {
                 text: 'y',
                 value: 'y'
+            },
+            {
+                text: 'z',
+                value: 'z'
             }
         ];
     }
@@ -678,6 +745,8 @@ class Scratch3GdxForBlocks {
             return this._peripheral.getTiltX();
         case 'y':
             return this._peripheral.getTiltY();
+        case 'z':
+            return this._peripheral.getTiltZ();
         default:
             log.warn(`Unknown direction in getTilt: ${args.TILT}`);
         }
@@ -697,23 +766,22 @@ class Scratch3GdxForBlocks {
     }
     isFreeFalling () {
         const currentVal = this.magnitude(
-            this._peripheral.getAccelerationX(),
-            this._peripheral.getAccelerationY(),
-            this._peripheral.getAccelerationZ()
+            this._peripheral.getAccelerationX(false),
+            this._peripheral.getAccelerationY(false),
+            this._peripheral.getAccelerationZ(false)
         );
         const currentSpinMag = this.magnitude(
-            this._peripheral.getSpinSpeedX(),
-            this._peripheral.getSpinSpeedY(),
-            this._peripheral.getSpinSpeedZ()
+            this._peripheral.getSpinSpeedX(false),
+            this._peripheral.getSpinSpeedY(false),
+            this._peripheral.getSpinSpeedZ(false)
         );
 
         // We want to account for rotation during freefall,
         // so we tack on a an estimated "rotational effect"
         // The spinFactor const is used to both scale the magnitude
         // of the gyro measurements and convert them to radians/second.
-        // It is computed from (0.5 * Math.PI / 180)
         // Where 0.3 was determined experimentally
-        const spinFactor = (0.3 * Math.PI / 180);
+        const spinFactor = 0.3;
         // The ffThresh const is what we compare our accel magnitude
         // against to judge if the device is in free fall.
         // The ideal is 0, but 0.5 allows for inevitable noise.
@@ -721,6 +789,10 @@ class Scratch3GdxForBlocks {
         let thresh = 0;
         thresh = ((spinFactor * currentSpinMag) + ffThresh);
 
+        // eslint-disable-next-line no-console
+        console.log('freefall', currentVal, currentSpinMag, thresh);
+        // eslint-disable-next-line no-console
+        if (currentVal < thresh) console.log('****** falling****');
         return currentVal < thresh;
     }
 }
