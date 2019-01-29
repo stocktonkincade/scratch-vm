@@ -26,6 +26,8 @@ const BLEUUID = {
     responseChar: 'b41e6675-a329-40e0-aa01-44d2f444babe'
 };
 
+const SMOOTHING_POINTS = 3;
+
 /**
  * Scratch default frame rate.
  * @type {number}
@@ -74,6 +76,10 @@ class GdxFor {
 
         this.disconnect = this.disconnect.bind(this);
         this._onConnect = this._onConnect.bind(this);
+
+        this._accelBufferX = [];
+        this._accelBufferY = [];
+        this._accelBufferZ = [];
     }
 
 
@@ -219,87 +225,65 @@ class GdxFor {
 
     getTiltX () {
         if (this.isConnected()) {
-            let x = this.getAccelerationX(false);
-            let y = this.getAccelerationY(false);
-            let z = this.getAccelerationZ(false);
-
-            // Compute the yz unit vector
-            const z2 = z * z;
-            const y2 = y * y;
-            let value = z2 + y2;
+            const x = this.getAccelerationX(false);
+            const y = this.getAccelerationY(false);
+            const z = this.getAccelerationZ(false);
+            let xTan2 = 0;
+            let xMicroY = 0;
 
             let xSign = 1;
+            if (x < 0) xSign = -1;
             let ySign = 1;
+            if (y < 0) ySign = -1;
             let zSign = 1;
-            
-            if (x < 0.0) {
-                x *= -1.0; xSign = -1;
-            }
-            if (y < 0.0) {
-                y *= -1.0; ySign = -1;
-            }
-            if (z < 0.0) {
-                z *= -1.0; zSign = -1;
-            }
-
-            // magnitude of z and y components
+            if (z < 0) zSign = -1;
+            // Compute the yz unit vector
+            const y2 = y * y;
+            const z2 = z * z;
+            let value = y2 + z2;
             value = Math.sqrt(value);
+            
+            xTan2 = Math.atan2(x, z);
+            xTan2 *= 57.2957795;
+            xMicroY = zSign * Math.sqrt(z2 + (0.1 * y2));
+            xMicroY = Math.atan(x / xMicroY);
+            xMicroY *= 57.2957795;
 
-            // For sufficiently small zy vector values we are essentially at 90 degrees.
-            // The following snaps to 90 and avoids divide-by-zero errors.
-            // The snap factor was derived through observation -- just enough to
-            // still allow single degree steps up to 90 (..., 87, 88, 89, 90).
-            if (value < 0.35) {
-                value = 90;
-            } else {
-                // Compute the x-axis angle
-                value = x / value;
-                value = Math.atan(value);
-                value *= 57.2957795; // convert from rad to deg
-            }
+            value = x / Math.sqrt(z2 + y2);
+            value = Math.atan(value);
+            value *= 57.2957795; // convert from rad to deg
 
             // Manage the sign of the result
+            // Manage the sign of the result
             let yzSign = ySign;
-            if (z > y) yzSign = zSign;
+            if (Math.abs(z) > Math.abs(y)) yzSign = xSign;
             if (yzSign === -1) value = 180.0 - value;
             value *= xSign;
-
+            
             // eslint-disable-next-line no-console
-            console.log('TiltX', value, 'x_acc:', x, 'y_acc:', y, 'z_acc:', z, 'denom:', Math.sqrt(z2 + y2));
-            // eslint-disable-next-line no-console
-            console.log('signs: x:', xSign, 'y:', ySign, 'z:', zSign);
+            console.log('ACC: ', value, xMicroY, xTan2);
 
             // Round the result to the nearest degree
             value = Math.round(value);
-            return value;
+            xMicroY = Math.round(xMicroY);
+            xTan2 = Math.round(xTan2);
+            return xTan2;
         }
         return 0;
     }
 
     getTiltY () {
         if (this.isConnected()) {
-            let x = this.getAccelerationX();
-            let y = this.getAccelerationY();
-            let z = this.getAccelerationZ();
+            const x = this.getAccelerationX(false);
+            const y = this.getAccelerationY(false);
+            const z = this.getAccelerationZ(false);
 
-            let xSign = 1;
             let ySign = 1;
-            let zSign = 1;
-
-            if (x < 0.0) {
-                x *= -1.0; xSign = -1;
-            }
-            if (y < 0.0) {
-                y *= -1.0; ySign = -1;
-            }
-            if (z < 0.0) {
-                z *= -1.0; zSign = -1;
-            }
-
+            if (y < 0) ySign = -1;
             // Compute the yz unit vector
-            const z2 = z * z;
             const x2 = x * x;
-            let value = z2 + x2;
+            const z2 = z * z;
+            let value = x2 + z2;
             value = Math.sqrt(value);
 
             // For sufficiently small zy vector values we are essentially at 90 degrees.
@@ -307,19 +291,11 @@ class GdxFor {
             // The snap factor was derived through observation -- just enough to
             // still allow single degree steps up to 90 (..., 87, 88, 89, 90).
             if (value < 0.35) {
-                value = 90;
+                value = (ySign * 90);
             } else {
-                // Compute the x-axis angle
-                value = y / value;
-                value = Math.atan(value);
+                value = Math.atan2(y, z);
                 value *= 57.2957795; // convert from rad to deg
             }
-
-            // Manage the sign of the result
-            let xzSign = xSign;
-            if (z > x) xzSign = zSign;
-            if (xzSign === -1) value = 180.0 - value;
-            value *= ySign;
 
             // Round the result to the nearest degree
             value = Math.round(value);
@@ -328,6 +304,159 @@ class GdxFor {
         return 0;
     }
 
+    getTiltMicroY () {
+        if (this.isConnected()) {
+            const x = this.getAccelerationX(false);
+            const y = this.getAccelerationY(false);
+            const z = this.getAccelerationZ(false);
+            let xMicroY = 0;
+
+            let zSign = 1;
+            if (z < 0) zSign = -1;
+            // Compute the yz unit vector
+            const y2 = y * y;
+            const z2 = z * z;
+
+            xMicroY = zSign * Math.sqrt(z2 + (0.1 * y2));
+            xMicroY = Math.atan(x / xMicroY);
+            xMicroY *= 57.2957795;
+
+            // Round the result to the nearest degree
+            xMicroY = Math.round(xMicroY);
+            return xMicroY;
+        }
+        return 0;
+    }
+
+    getTiltTan2 () {
+        if (this.isConnected()) {
+            const x = this.getAccelerationX(false);
+            const z = this.getAccelerationZ(false);
+
+            let xTan2 = Math.atan2(x, z);
+            xTan2 *= 57.2957795;
+
+            // Round the result to the nearest degree
+            xTan2 = Math.round(xTan2);
+            return xTan2;
+        }
+        return 0;
+    }
+
+    getTiltFrontBack (back = false) {
+        if (this.isConnected()) {
+            const x = this.getAccelerationX(false);
+            const y = this.getAccelerationY(false);
+            const z = this.getAccelerationZ(false);
+
+            // Compute the yz unit vector
+            const y2 = y * y;
+            const z2 = z * z;
+            let value = y2 + z2;
+            value = Math.sqrt(value);
+
+            if (value < 0.35) {
+                value = 90;
+            } else {
+                value = x / value;
+                value = Math.atan(value);
+                value *= 57.2957795; // convert from rad to deg
+            }
+
+            if (back) value *= -1;
+
+            // Round the result to the nearest degree
+            value = Math.round(value);
+            return value;
+        }
+        return 0;
+    }
+
+    getTiltLeftRight (right = false) {
+        if (this.isConnected()) {
+            const x = this.getAccelerationX(false);
+            const y = this.getAccelerationY(false);
+            const z = this.getAccelerationZ(false);
+
+            // Compute the yz unit vector
+            const x2 = x * x;
+            const z2 = z * z;
+            let value = x2 + z2;
+            value = Math.sqrt(value);
+
+            if (value < 0.35) {
+                value = 90;
+            } else {
+                value = y / value;
+                value = Math.atan(value);
+                value *= 57.2957795; // convert from rad to deg
+            }
+
+            if (right) value *= -1;
+
+            // Round the result to the nearest degree
+            value = Math.round(value);
+            return value;
+        }
+        return 0;
+    }
+
+    /**
+     * @param {array} vals - array of vals to smoooth
+     * @return {number} - the smoothed value
+     */
+    smooth (vals) {
+        let smooth = 0;
+        const valsLength = vals.length;
+        let i = 0;
+
+        for (i = 0; i < valsLength; i++) {
+            smooth += vals[i];
+        }
+        //  The last value gets twice the weight
+        smooth += vals[valsLength - 1];
+
+        smooth /= (valsLength + 1);
+
+        return smooth;
+    }
+
+    getAccelerationAvg (chan = 1, round = true) {
+        let vals;
+
+        switch (chan) {
+        case 2: vals = this._accelBufferX; break;
+        case 3: vals = this._accelBufferY; break;
+        case 4: vals = this._accelBufferZ; break;
+        default:
+            log.warn(`Unknown channel number for getAccelAvg`);
+            return 0;
+        }
+
+        const valsLength = vals.length;
+        const accel = this._getAcceleration(chan, round);
+
+        if (valsLength < 2 || vals[valsLength - 1] !== accel) {
+            if (valsLength < SMOOTHING_POINTS) {
+                // Not a full array, so we fill it out
+                vals.push(accel);
+            } else {
+                let i = valsLength - 1;
+
+                // Shift out the oldest in favor of the new measurement
+                while (i > 0) {
+                    vals[i - 1] = vals[i];
+                    i--;
+                }
+
+                // Add the new measurement
+                vals[valsLength - 1] = accel;
+            }
+        }
+
+        const result = this.smooth(vals);
+        return result;
+    }
 
     getAccelerationX (round = true) {
         return this._getAcceleration(2, round);
@@ -424,12 +553,32 @@ class Scratch3GdxForBlocks {
                 value: 'x'
             },
             {
-                text: 'y',
-                value: 'y'
+                text: 'front',
+                value: 'front'
             },
             {
-                text: 'z',
-                value: 'z'
+                text: 'back',
+                value: 'back'
+            },
+            {
+                text: 'left',
+                value: 'left'
+            },
+            {
+                text: 'right',
+                value: 'right'
+            },
+            {
+                text: 'tan2',
+                value: 'tan2'
+            },
+            {
+                text: 'microY',
+                value: 'microY'
+            },
+            {
+                text: 'y',
+                value: 'y'
             }
         ];
     }
@@ -745,8 +894,18 @@ class Scratch3GdxForBlocks {
             return this._peripheral.getTiltX();
         case 'y':
             return this._peripheral.getTiltY();
-        case 'z':
-            return this._peripheral.getTiltZ();
+        case 'microY':
+            return this._peripheral.getTiltMicroY();
+        case 'tan2':
+            return this._peripheral.getTiltTan2();
+        case 'front':
+            return this._peripheral.getTiltFrontBack(false);
+        case 'back':
+            return this._peripheral.getTiltFrontBack(true);
+        case 'left':
+            return this._peripheral.getTiltLeftRight(false);
+        case 'right':
+            return this._peripheral.getTiltLeftRight(true);
         default:
             log.warn(`Unknown direction in getTilt: ${args.TILT}`);
         }
@@ -789,10 +948,6 @@ class Scratch3GdxForBlocks {
         let thresh = 0;
         thresh = ((spinFactor * currentSpinMag) + ffThresh);
 
-        // eslint-disable-next-line no-console
-        console.log('freefall', currentVal, currentSpinMag, thresh);
-        // eslint-disable-next-line no-console
-        if (currentVal < thresh) console.log('****** falling****');
         return currentVal < thresh;
     }
 }
