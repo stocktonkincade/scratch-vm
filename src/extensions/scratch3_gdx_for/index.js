@@ -1,7 +1,6 @@
 const ArgumentType = require('../../extension-support/argument-type');
 const BlockType = require('../../extension-support/block-type');
 const log = require('../../util/log');
-const Cast = require('../../util/cast');
 const formatMessage = require('format-message');
 const MathUtil = require('../../util/math-util');
 const BLE = require('../../io/ble');
@@ -26,13 +25,41 @@ const BLEUUID = {
     responseChar: 'b41e6675-a329-40e0-aa01-44d2f444babe'
 };
 
-const SMOOTHING_POINTS = 3;
-
 /**
- * Scratch default frame rate.
+ * Threshold for pushing and pulling force, for the whenForcePushedOrPulled hat block.
  * @type {number}
  */
-const FRAMES_PER_SEC = 30;
+const FORCE_THRESHOLD = 5;
+
+/**
+ * Threshold for acceleration magnitude, for the "moved" gesture.
+ * @type {number}
+ */
+const MOVED_THRESHOLD = 3;
+
+/**
+ * Threshold for acceleration magnitude, for the "shaken" gesture.
+ * @type {number}
+ */
+const SHAKEN_THRESHOLD = 30;
+
+/**
+ * Threshold for acceleration magnitude, to check if we are facing up.
+ * @type {number}
+ */
+const FACING_THRESHOLD = 9;
+
+/**
+ * Threshold for acceleration magnitude, below which we are in freefall.
+ * @type {number}
+ */
+const FREEFALL_THRESHOLD = 0.5;
+
+/**
+ * Acceleration due to gravity, in m/s^2.
+ * @type {number}
+ */
+const GRAVITY = 9.8;
 
 /**
  * Manage communication with a GDX-FOR peripheral over a Scratch Link client socket.
@@ -76,10 +103,7 @@ class GdxFor {
 
         this.disconnect = this.disconnect.bind(this);
         this._onConnect = this._onConnect.bind(this);
-
-        this._accelBufferX = [];
-        this._accelBufferY = [];
-        this._accelBufferZ = [];
+        this._sensorsEnabled = null;
     }
 
 
@@ -87,8 +111,8 @@ class GdxFor {
      * Called by the runtime when user wants to scan for a peripheral.
      */
     scan () {
-        if (this._device) {
-            this._device.close();
+        if (this._scratchLinkSocket) {
+            this._scratchLinkSocket.disconnect();
         }
 
         this._scratchLinkSocket = new BLE(this._runtime, this._extensionId, {
@@ -112,12 +136,13 @@ class GdxFor {
     }
 
     /**
-     * Called by the runtime when a use exits the connection popup.
+     * Called by the runtime when a user exits the connection popup.
      * Disconnect from the GDX FOR.
      */
     disconnect () {
-        if (this._device) {
-            this._device.close();
+        this._sensorsEnabled = false;
+        if (this._scratchLinkSocket) {
+            this._scratchLinkSocket.disconnect();
         }
     }
 
@@ -141,7 +166,7 @@ class GdxFor {
         const adapter = new ScratchLinkDeviceAdapter(this._scratchLinkSocket, BLEUUID);
         godirect.createDevice(adapter, {open: true, startMeasurements: false}).then(device => {
             this._device = device;
-            this._device.keepValues = false;
+            this._device.keepValues = false; // todo: possibly remove after updating Vernier godirect module
             this._startMeasurements();
         });
     }
@@ -154,25 +179,33 @@ class GdxFor {
         this._device.sensors.forEach(sensor => {
             sensor.setEnabled(true);
         });
+        this._device.on('measurements-started', () => {
+            this._sensorsEnabled = true;
+        });
         this._device.start(10); // Set the period to 10 milliseconds
     }
 
+    /**
+     * Device is connected and measurements enabled
+     * @return {boolean} - whether the goforce is connected and measurements started.
+     */
+    _canReadSensors () {
+        return this.isConnected() && this._sensorsEnabled;
+    }
 
     getForce () {
-        if (this.isConnected()) {
+        if (this._canReadSensors()) {
             let force = this._device.getSensor(1).value;
             // Normalize the force, which can be measured between -50 and 50 N,
             // to be a value between -100 and 100.
             force = MathUtil.clamp(force * 2, -100, 100);
-            force *= -1;
-            force = Math.round(force);
             return force;
         }
         return 0;
     }
 
-    getTiltZ () {
-        if (this.isConnected()) {
+    getTiltX () {
+        if (this._canReadSensors()) {
             let x = this.getAccelerationX();
             let y = this.getAccelerationY();
             let z = this.getAccelerationZ();
@@ -192,9 +225,9 @@ class GdxFor {
             }
 
             // Compute the yz unit vector
+            const z2 = z * z;
             const x2 = x * x;
-            const y2 = y * y;
-            let value = x2 + y2;
+            let value = z2 + x2;
             value = Math.sqrt(value);
 
             // For sufficiently small zy vector values we are essentially at 90 degrees.
@@ -205,85 +238,46 @@ class GdxFor {
                 value = 90;
             } else {
                 // Compute the x-axis angle
-                value = z / value;
+                value = y / value;
                 value = Math.atan(value);
                 value *= 57.2957795; // convert from rad to deg
             }
-
             // Manage the sign of the result
-            let yxSign = ySign;
-            if (x > y) yxSign = xSign;
-            if (yxSign === -1) value = 180.0 - value;
-            value *= zSign;
-
+            let xzSign = xSign;
+            if (z > x) xzSign = zSign;
+            if (xzSign === -1) value = 180.0 - value;
+            value *= ySign;
             // Round the result to the nearest degree
-            value = Math.round(value);
+            value += 0.5;
             return value;
         }
         return 0;
     }
 
-    getTiltX () {
-        if (this.isConnected()) {
-            const x = this.getAccelerationX(false);
-            const y = this.getAccelerationY(false);
-            const z = this.getAccelerationZ(false);
-            let xTan2 = 0;
-            let xMicroY = 0;
+    getTiltY () {
+        if (this._canReadSensors()) {
+            let x = this.getAccelerationX();
+            let y = this.getAccelerationY();
+            let z = this.getAccelerationZ();
 
             let xSign = 1;
-            if (x < 0) xSign = -1;
             let ySign = 1;
-            if (y < 0) ySign = -1;
             let zSign = 1;
-            if (z < 0) zSign = -1;
+
+            if (x < 0.0) {
+                x *= -1.0; xSign = -1;
+            }
+            if (y < 0.0) {
+                y *= -1.0; ySign = -1;
+            }
+            if (z < 0.0) {
+                z *= -1.0; zSign = -1;
+            }
+
             // Compute the yz unit vector
+            const z2 = z * z;
             const y2 = y * y;
-            const z2 = z * z;
-            let value = y2 + z2;
-            value = Math.sqrt(value);
-            
-            xTan2 = Math.atan2(x, z);
-            xTan2 *= 57.2957795;
-            xMicroY = zSign * Math.sqrt(z2 + (0.1 * y2));
-            xMicroY = Math.atan(x / xMicroY);
-            xMicroY *= 57.2957795;
-
-            value = x / Math.sqrt(z2 + y2);
-            value = Math.atan(value);
-            value *= 57.2957795; // convert from rad to deg
-
-            // Manage the sign of the result
-            // Manage the sign of the result
-            let yzSign = ySign;
-            if (Math.abs(z) > Math.abs(y)) yzSign = xSign;
-            if (yzSign === -1) value = 180.0 - value;
-            value *= xSign;
-            
-            // eslint-disable-next-line no-console
-            console.log('ACC: ', value, xMicroY, xTan2);
-
-            // Round the result to the nearest degree
-            value = Math.round(value);
-            xMicroY = Math.round(xMicroY);
-            xTan2 = Math.round(xTan2);
-            return xTan2;
-        }
-        return 0;
-    }
-
-    getTiltY () {
-        if (this.isConnected()) {
-            const x = this.getAccelerationX(false);
-            const y = this.getAccelerationY(false);
-            const z = this.getAccelerationZ(false);
-
-            let ySign = 1;
-            if (y < 0) ySign = -1;
-            // Compute the yz unit vector
-            const x2 = x * x;
-            const z2 = z * z;
-            let value = x2 + z2;
+            let value = z2 + y2;
             value = Math.sqrt(value);
 
             // For sufficiently small zy vector values we are essentially at 90 degrees.
@@ -291,223 +285,116 @@ class GdxFor {
             // The snap factor was derived through observation -- just enough to
             // still allow single degree steps up to 90 (..., 87, 88, 89, 90).
             if (value < 0.35) {
-                value = (ySign * 90);
-            } else {
-                value = Math.atan2(y, z);
-                value *= 57.2957795; // convert from rad to deg
-            }
-
-            // Round the result to the nearest degree
-            value = Math.round(value);
-            return value;
-        }
-        return 0;
-    }
-
-    getTiltMicroY () {
-        if (this.isConnected()) {
-            const x = this.getAccelerationX(false);
-            const y = this.getAccelerationY(false);
-            const z = this.getAccelerationZ(false);
-            let xMicroY = 0;
-
-            let zSign = 1;
-            if (z < 0) zSign = -1;
-            // Compute the yz unit vector
-            const y2 = y * y;
-            const z2 = z * z;
-
-            xMicroY = zSign * Math.sqrt(z2 + (0.1 * y2));
-            xMicroY = Math.atan(x / xMicroY);
-            xMicroY *= 57.2957795;
-
-            // Round the result to the nearest degree
-            xMicroY = Math.round(xMicroY);
-            return xMicroY;
-        }
-        return 0;
-    }
-
-    getTiltTan2 () {
-        if (this.isConnected()) {
-            const x = this.getAccelerationX(false);
-            const z = this.getAccelerationZ(false);
-
-            let xTan2 = Math.atan2(x, z);
-            xTan2 *= 57.2957795;
-
-            // Round the result to the nearest degree
-            xTan2 = Math.round(xTan2);
-            return xTan2;
-        }
-        return 0;
-    }
-
-    getTiltFrontBack (back = false) {
-        if (this.isConnected()) {
-            const x = this.getAccelerationX(false);
-            const y = this.getAccelerationY(false);
-            const z = this.getAccelerationZ(false);
-
-            // Compute the yz unit vector
-            const y2 = y * y;
-            const z2 = z * z;
-            let value = y2 + z2;
-            value = Math.sqrt(value);
-
-            if (value < 0.35) {
                 value = 90;
             } else {
+                // Compute the x-axis angle
                 value = x / value;
                 value = Math.atan(value);
                 value *= 57.2957795; // convert from rad to deg
             }
-
-            if (back) value *= -1;
-
+            // Manage the sign of the result
+            let yzSign = ySign;
+            if (z > y) yzSign = zSign;
+            if (yzSign === -1) value = 180.0 - value;
+            value *= xSign;
             // Round the result to the nearest degree
-            value = Math.round(value);
+            value += 0.5;
             return value;
         }
         return 0;
     }
 
-    getTiltLeftRight (right = false) {
-        if (this.isConnected()) {
-            const x = this.getAccelerationX(false);
-            const y = this.getAccelerationY(false);
-            const z = this.getAccelerationZ(false);
-
-            // Compute the yz unit vector
-            const x2 = x * x;
-            const z2 = z * z;
-            let value = x2 + z2;
-            value = Math.sqrt(value);
-
-            if (value < 0.35) {
-                value = 90;
-            } else {
-                value = y / value;
-                value = Math.atan(value);
-                value *= 57.2957795; // convert from rad to deg
-            }
-
-            if (right) value *= -1;
-
-            // Round the result to the nearest degree
-            value = Math.round(value);
-            return value;
-        }
-        return 0;
+    getAccelerationX () {
+        return this._getAcceleration(2);
     }
 
-    /**
-     * @param {array} vals - array of vals to smoooth
-     * @return {number} - the smoothed value
-     */
-    smooth (vals) {
-        let smooth = 0;
-        const valsLength = vals.length;
-        let i = 0;
-
-        for (i = 0; i < valsLength; i++) {
-            smooth += vals[i];
-        }
-        //  The last value gets twice the weight
-        smooth += vals[valsLength - 1];
-
-        smooth /= (valsLength + 1);
-
-        return smooth;
+    getAccelerationY () {
+        return this._getAcceleration(3);
     }
 
-    getAccelerationAvg (chan = 1, round = true) {
-        let vals;
-
-        switch (chan) {
-        case 2: vals = this._accelBufferX; break;
-        case 3: vals = this._accelBufferY; break;
-        case 4: vals = this._accelBufferZ; break;
-        default:
-            log.warn(`Unknown channel number for getAccelAvg`);
-            return 0;
-        }
-
-        const valsLength = vals.length;
-        const accel = this._getAcceleration(chan, round);
-
-        if (valsLength < 2 || vals[valsLength - 1] !== accel) {
-            if (valsLength < SMOOTHING_POINTS) {
-                // Not a full array, so we fill it out
-                vals.push(accel);
-            } else {
-                let i = valsLength - 1;
-
-                // Shift out the oldest in favor of the new measurement
-                while (i > 0) {
-                    vals[i - 1] = vals[i];
-                    i--;
-                }
-
-                // Add the new measurement
-                vals[valsLength - 1] = accel;
-            }
-        }
-
-        const result = this.smooth(vals);
-        return result;
+    getAccelerationZ () {
+        return this._getAcceleration(4);
     }
 
-    getAccelerationX (round = true) {
-        return this._getAcceleration(2, round);
-    }
-
-    getAccelerationY (round = true) {
-        return this._getAcceleration(3, round);
-    }
-
-    getAccelerationZ (round = true) {
-        return this._getAcceleration(4, round);
-    }
-
-    _getAcceleration (sensorNum, round = true) {
-        if (!this.isConnected()) return 0;
-        let val = this._device.getSensor(sensorNum).value;
-        if (round) val = Math.round(val);
+    _getAcceleration (sensorNum) {
+        if (!this._canReadSensors()) return 0;
+        const val = this._device.getSensor(sensorNum).value;
         return val;
     }
 
-    getSpinSpeedX (round = true) {
-        return this._getSpinSpeed(5, round);
+    getSpinSpeedX () {
+        return this._getSpinSpeed(5);
     }
 
-    getSpinSpeedY (round = true) {
-        return this._getSpinSpeed(6, round);
+    getSpinSpeedY () {
+        return this._getSpinSpeed(6);
     }
 
-    getSpinSpeedZ (round = true) {
-        return this._getSpinSpeed(7, round);
+    getSpinSpeedZ () {
+        return this._getSpinSpeed(7);
     }
 
-    _getSpinSpeed (sensorNum, round = true) {
-        if (!this.isConnected()) return 0;
+    _getSpinSpeed (sensorNum) {
+        if (!this._canReadSensors()) return 0;
         let val = this._device.getSensor(sensorNum).value;
-        val *= 180 / Math.PI; // Convert from radians to degrees
-        val /= FRAMES_PER_SEC; // Convert from degrees per sec to degrees per frame
-        val *= -1;
-        if (round) val = Math.round(val);
+        val = MathUtil.radToDeg(val);
+        const framesPerSec = 1000 / this._runtime.currentStepTime;
+        val = val / framesPerSec; // convert to from degrees per sec to degrees per frame
+        val = val * -1;
         return val;
     }
 }
 
 /**
- * Enum for comparison operations.
+ * Enum for pushed and pulled menu options.
  * @readonly
  * @enum {string}
  */
-const ComparisonOptions = {
-    LESS_THAN: 'less_than',
-    GREATER_THAN: 'greater_than'
+const PushPullValues = {
+    PUSHED: 'pushed',
+    PULLED: 'pulled'
+};
+
+/**
+ * Enum for motion gesture menu options.
+ * @readonly
+ * @enum {string}
+ */
+const GestureValues = {
+    MOVED: 'moved',
+    SHAKEN: 'shaken',
+    STARTED_FALLING: 'started falling'
+};
+
+/**
+ * Enum for tilt axis menu options.
+ * @readonly
+ * @enum {string}
+ */
+const TiltAxisValues = {
+    X: 'x',
+    Y: 'y'
+};
+
+/**
+ * Enum for axis menu options.
+ * @readonly
+ * @enum {string}
+ */
+const AxisValues = {
+    X: 'x',
+    Y: 'y',
+    Z: 'z'
+};
+
+/**
+ * Enum for face menu options.
+ * @readonly
+ * @enum {string}
+ */
+const FaceValues = {
+    UP: 'up',
+    DOWN: 'down'
 };
 
 /**
@@ -519,7 +406,7 @@ class Scratch3GdxForBlocks {
      * @return {string} - the name of this extension.
      */
     static get EXTENSION_NAME () {
-        return 'GDX-FOR';
+        return 'Force and Acceleration';
     }
 
     /**
@@ -529,19 +416,19 @@ class Scratch3GdxForBlocks {
         return 'gdxfor';
     }
 
-    get DIRECTIONS_MENU () {
+    get AXIS_MENU () {
         return [
             {
                 text: 'x',
-                value: 'x'
+                value: AxisValues.X
             },
             {
                 text: 'y',
-                value: 'y'
+                value: AxisValues.Y
             },
             {
                 text: 'z',
-                value: 'z'
+                value: AxisValues.Z
             }
         ];
     }
@@ -550,35 +437,11 @@ class Scratch3GdxForBlocks {
         return [
             {
                 text: 'x',
-                value: 'x'
-            },
-            {
-                text: 'front',
-                value: 'front'
-            },
-            {
-                text: 'back',
-                value: 'back'
-            },
-            {
-                text: 'left',
-                value: 'left'
-            },
-            {
-                text: 'right',
-                value: 'right'
-            },
-            {
-                text: 'tan2',
-                value: 'tan2'
-            },
-            {
-                text: 'microY',
-                value: 'microY'
+                value: TiltAxisValues.X
             },
             {
                 text: 'y',
-                value: 'y'
+                value: TiltAxisValues.Y
             }
         ];
     }
@@ -586,30 +449,73 @@ class Scratch3GdxForBlocks {
     get FACE_MENU () {
         return [
             {
-                text: 'up',
-                value: 'up'
+                text: formatMessage({
+                    id: 'gdxfor.up',
+                    default: 'up',
+                    description: 'the sensor is facing up'
+                }),
+                value: FaceValues.UP
             },
             {
-                text: 'down',
-                value: 'down'
+                text: formatMessage({
+                    id: 'gdxfor.down',
+                    default: 'down',
+                    description: 'the sensor is facing down'
+                }),
+                value: FaceValues.DOWN
             }
         ];
     }
 
-
-    get COMPARE_MENU () {
+    get PUSH_PULL_MENU () {
         return [
             {
-                text: '<',
-                value: ComparisonOptions.LESS_THAN
+                text: formatMessage({
+                    id: 'gdxfor.pushed',
+                    default: 'pushed',
+                    description: 'the force sensor was pushed inward'
+                }),
+                value: PushPullValues.PUSHED
             },
             {
-                text: '>',
-                value: ComparisonOptions.GREATER_THAN
+                text: formatMessage({
+                    id: 'gdxfor.pulled',
+                    default: 'pulled',
+                    description: 'the force sensor was pulled outward'
+                }),
+                value: PushPullValues.PULLED
             }
         ];
     }
 
+    get GESTURE_MENU () {
+        return [
+            {
+                text: formatMessage({
+                    id: 'gdxfor.moved',
+                    default: 'moved',
+                    description: 'the sensor was moved'
+                }),
+                value: GestureValues.MOVED
+            },
+            {
+                text: formatMessage({
+                    id: 'gdxfor.shaken',
+                    default: 'shaken',
+                    description: 'the sensor was shaken'
+                }),
+                value: GestureValues.SHAKEN
+            },
+            {
+                text: formatMessage({
+                    id: 'gdxfor.startedFalling',
+                    default: 'started falling',
+                    description: 'the sensor started free falling'
+                }),
+                value: GestureValues.STARTED_FALLING
+            }
+        ];
+    }
 
     /**
      * Construct a set of GDX-FOR blocks.
@@ -637,22 +543,18 @@ class Scratch3GdxForBlocks {
             showStatusButton: true,
             blocks: [
                 {
-                    opcode: 'whenForceCompare',
+                    opcode: 'whenForcePushedOrPulled',
                     text: formatMessage({
-                        id: 'gdxfor.whenForceCompare',
-                        default: 'when force [COMPARE] [VALUE]',
-                        description: 'when the value measured by the force sensor is compared to some value'
+                        id: 'gdxfor.whenForcePushedOrPulled',
+                        default: 'when force sensor [PUSH_PULL]',
+                        description: 'when the force sensor is pushed or pulled'
                     }),
                     blockType: BlockType.HAT,
                     arguments: {
-                        COMPARE: {
+                        PUSH_PULL: {
                             type: ArgumentType.STRING,
-                            menu: 'compareOptions',
-                            defaultValue: ComparisonOptions.GREATER_THAN
-                        },
-                        VALUE: {
-                            type: ArgumentType.NUMBER,
-                            defaultValue: 5
+                            menu: 'pushPullOptions',
+                            defaultValue: PushPullValues.PUSHED
                         }
                     }
                 },
@@ -665,41 +567,19 @@ class Scratch3GdxForBlocks {
                     }),
                     blockType: BlockType.REPORTER
                 },
-                '---',
                 {
-                    opcode: 'whenAccelerationCompare',
+                    opcode: 'whenGesture',
                     text: formatMessage({
-                        id: 'gdxfor.whenAccelerationCompare',
-                        default: 'when acceleration [COMPARE] [VALUE]',
-                        description: 'when the meters/second^2 value measured by the ' +
-                            'acceleration sensor is compared to some value'
+                        id: 'gdxfor.whenGesture',
+                        default: 'when [GESTURE]',
+                        description: 'when the sensor detects a gesture'
                     }),
                     blockType: BlockType.HAT,
                     arguments: {
-                        COMPARE: {
+                        GESTURE: {
                             type: ArgumentType.STRING,
-                            menu: 'compareOptions',
-                            defaultValue: ComparisonOptions.GREATER_THAN
-                        },
-                        VALUE: {
-                            type: ArgumentType.NUMBER,
-                            defaultValue: 5
-                        }
-                    }
-                },
-                {
-                    opcode: 'getAcceleration',
-                    text: formatMessage({
-                        id: 'gdxfor.getAcceleration',
-                        default: 'acceleration [DIRECTION]',
-                        description: 'gets acceleration'
-                    }),
-                    blockType: BlockType.REPORTER,
-                    arguments: {
-                        DIRECTION: {
-                            type: ArgumentType.STRING,
-                            menu: 'directionOptions',
-                            defaultValue: 'x'
+                            menu: 'gestureOptions',
+                            defaultValue: GestureValues.MOVED
                         }
                     }
                 },
@@ -715,29 +595,7 @@ class Scratch3GdxForBlocks {
                         TILT: {
                             type: ArgumentType.STRING,
                             menu: 'tiltOptions',
-                            defaultValue: 'x'
-                        }
-                    }
-                },
-                '---',
-                {
-                    opcode: 'whenSpinSpeedCompare',
-                    text: formatMessage({
-                        id: 'gdxfor.whenSpinSpeedCompare',
-                        default: 'when spin speed [COMPARE] [VALUE]',
-                        description: 'when the degrees/second value measured by the ' +
-                            'gyroscope sensor is compared to some value'
-                    }),
-                    blockType: BlockType.HAT,
-                    arguments: {
-                        COMPARE: {
-                            type: ArgumentType.STRING,
-                            menu: 'compareOptions',
-                            defaultValue: ComparisonOptions.GREATER_THAN
-                        },
-                        VALUE: {
-                            type: ArgumentType.NUMBER,
-                            defaultValue: 5
+                            defaultValue: TiltAxisValues.X
                         }
                     }
                 },
@@ -752,31 +610,27 @@ class Scratch3GdxForBlocks {
                     arguments: {
                         DIRECTION: {
                             type: ArgumentType.STRING,
-                            menu: 'directionOptions',
-                            defaultValue: 'x'
+                            menu: 'axisOptions',
+                            defaultValue: AxisValues.Z
                         }
                     }
                 },
-                '---',
                 {
-                    opcode: 'whenFreeFalling',
+                    opcode: 'getAcceleration',
                     text: formatMessage({
-                        id: 'gdxfor.whenFreeFalling',
-                        default: 'when free falling',
-                        description: 'when the device is in free fall'
+                        id: 'gdxfor.getAcceleration',
+                        default: 'acceleration [DIRECTION]',
+                        description: 'gets acceleration'
                     }),
-                    blockType: BlockType.HAT
+                    blockType: BlockType.REPORTER,
+                    arguments: {
+                        DIRECTION: {
+                            type: ArgumentType.STRING,
+                            menu: 'axisOptions',
+                            defaultValue: AxisValues.X
+                        }
+                    }
                 },
-                {
-                    opcode: 'isFreeFalling',
-                    text: formatMessage({
-                        id: 'gdxfor.isFreeFalling',
-                        default: 'free falling?',
-                        description: 'is the device in freefall?'
-                    }),
-                    blockType: BlockType.BOOLEAN
-                },
-                '---',
                 {
                     opcode: 'isFacing',
                     text: formatMessage({
@@ -789,18 +643,96 @@ class Scratch3GdxForBlocks {
                         FACING: {
                             type: ArgumentType.STRING,
                             menu: 'faceOptions',
-                            defaultValue: 'up'
+                            defaultValue: FaceValues.UP
                         }
                     }
+                },
+                {
+                    opcode: 'isFreeFalling',
+                    text: formatMessage({
+                        id: 'gdxfor.isFreeFalling',
+                        default: 'falling?',
+                        description: 'is the device in free fall?'
+                    }),
+                    blockType: BlockType.BOOLEAN
+
                 }
             ],
             menus: {
-                directionOptions: this.DIRECTIONS_MENU,
-                compareOptions: this.COMPARE_MENU,
+                pushPullOptions: this.PUSH_PULL_MENU,
+                gestureOptions: this.GESTURE_MENU,
+                axisOptions: this.AXIS_MENU,
                 tiltOptions: this.TILT_MENU,
                 faceOptions: this.FACE_MENU
             }
         };
+    }
+
+    whenForcePushedOrPulled (args) {
+        switch (args.PUSH_PULL) {
+        case PushPullValues.PUSHED:
+            return this._peripheral.getForce() < FORCE_THRESHOLD * -1;
+        case PushPullValues.PULLED:
+            return this._peripheral.getForce() > FORCE_THRESHOLD;
+        default:
+            log.warn(`unknown push/pull value in whenForcePushedOrPulled: ${args.PUSH_PULL}`);
+            return false;
+        }
+    }
+
+    getForce () {
+        return Math.round(this._peripheral.getForce());
+    }
+
+    whenGesture (args) {
+        switch (args.GESTURE) {
+        case GestureValues.MOVED:
+            return this.gestureMagnitude() > MOVED_THRESHOLD;
+        case GestureValues.SHAKEN:
+            return this.gestureMagnitude() > SHAKEN_THRESHOLD;
+        case GestureValues.STARTED_FALLING:
+            return this.isFreeFalling();
+        default:
+            log.warn(`unknown gesture value in whenGesture: ${args.GESTURE}`);
+            return false;
+        }
+    }
+
+    getTilt (args) {
+        switch (args.TILT) {
+        case TiltAxisValues.X:
+            return Math.round(this._peripheral.getTiltX());
+        case TiltAxisValues.Y:
+            return Math.round(this._peripheral.getTiltY());
+        default:
+            log.warn(`Unknown direction in getTilt: ${args.TILT}`);
+        }
+    }
+
+    getSpinSpeed (args) {
+        switch (args.DIRECTION) {
+        case AxisValues.X:
+            return Math.round(this._peripheral.getSpinSpeedX());
+        case AxisValues.Y:
+            return Math.round(this._peripheral.getSpinSpeedY());
+        case AxisValues.Z:
+            return Math.round(this._peripheral.getSpinSpeedZ());
+        default:
+            log.warn(`Unknown direction in getSpinSpeed: ${args.DIRECTION}`);
+        }
+    }
+
+    getAcceleration (args) {
+        switch (args.DIRECTION) {
+        case AxisValues.X:
+            return Math.round(this._peripheral.getAccelerationX());
+        case AxisValues.Y:
+            return Math.round(this._peripheral.getAccelerationY());
+        case AxisValues.Z:
+            return Math.round(this._peripheral.getAccelerationZ());
+        default:
+            log.warn(`Unknown direction in getAcceleration: ${args.DIRECTION}`);
+        }
     }
 
     /**
@@ -813,127 +745,40 @@ class Scratch3GdxForBlocks {
         return Math.sqrt((x * x) + (y * y) + (z * z));
     }
 
-    whenAccelerationCompare (args) {
-        let currentVal = this.magnitude(
+    accelMagnitude () {
+        return this.magnitude(
             this._peripheral.getAccelerationX(),
             this._peripheral.getAccelerationY(),
             this._peripheral.getAccelerationZ()
         );
-
-        // Remove acceleration due to gravity
-        currentVal = currentVal - 9.8;
-
-        switch (args.COMPARE) {
-        case ComparisonOptions.LESS_THAN:
-            return currentVal < Cast.toNumber(args.VALUE);
-        case ComparisonOptions.GREATER_THAN:
-            return currentVal > Cast.toNumber(args.VALUE);
-        default:
-            log.warn(`Unknown comparison operator in whenAccelerationCompare: ${args.COMPARE}`);
-            return false;
-        }
     }
-    whenFreeFalling () {
-        return this.isFreeFalling();
-    }
-    whenSpinSpeedCompare (args) {
-        const currentVal = this.magnitude(
+
+    spinMagnitude () {
+        return this.magnitude(
             this._peripheral.getSpinSpeedX(),
             this._peripheral.getSpinSpeedY(),
             this._peripheral.getSpinSpeedZ()
         );
+    }
 
-        switch (args.COMPARE) {
-        case ComparisonOptions.LESS_THAN:
-            return currentVal < Cast.toNumber(args.VALUE);
-        case ComparisonOptions.GREATER_THAN:
-            return currentVal > Cast.toNumber(args.VALUE);
-        default:
-            log.warn(`Unknown comparison operator in whenSpinSpeedCompare: ${args.COMPARE}`);
-            return false;
-        }
+    gestureMagnitude () {
+        return this.accelMagnitude() - GRAVITY;
     }
-    whenForceCompare (args) {
-        switch (args.COMPARE) {
-        case ComparisonOptions.LESS_THAN:
-            return this._peripheral.getForce() < Cast.toNumber(args.VALUE);
-        case ComparisonOptions.GREATER_THAN:
-            return this._peripheral.getForce() > Cast.toNumber(args.VALUE);
-        default:
-            log.warn(`Unknown comparison operator in whenForceCompare: ${args.COMPARE}`);
-            return false;
-        }
-    }
-    getAcceleration (args) {
-        switch (args.DIRECTION) {
-        case 'x':
-            return this._peripheral.getAccelerationX();
-        case 'y':
-            return this._peripheral.getAccelerationY();
-        case 'z':
-            return this._peripheral.getAccelerationZ();
-        default:
-            log.warn(`Unknown direction in getAcceleration: ${args.DIRECTION}`);
-        }
-    }
-    getSpinSpeed (args) {
-        switch (args.DIRECTION) {
-        case 'x':
-            return this._peripheral.getSpinSpeedX();
-        case 'y':
-            return this._peripheral.getSpinSpeedY();
-        case 'z':
-            return this._peripheral.getSpinSpeedZ();
-        default:
-            log.warn(`Unknown direction in getSpinSpeed: ${args.DIRECTION}`);
-        }
-    }
-    getTilt (args) {
-        switch (args.TILT) {
-        case 'x':
-            return this._peripheral.getTiltX();
-        case 'y':
-            return this._peripheral.getTiltY();
-        case 'microY':
-            return this._peripheral.getTiltMicroY();
-        case 'tan2':
-            return this._peripheral.getTiltTan2();
-        case 'front':
-            return this._peripheral.getTiltFrontBack(false);
-        case 'back':
-            return this._peripheral.getTiltFrontBack(true);
-        case 'left':
-            return this._peripheral.getTiltLeftRight(false);
-        case 'right':
-            return this._peripheral.getTiltLeftRight(true);
-        default:
-            log.warn(`Unknown direction in getTilt: ${args.TILT}`);
-        }
-    }
-    getForce () {
-        return this._peripheral.getForce();
-    }
+
     isFacing (args) {
         switch (args.FACING) {
-        case 'up':
-            return this._peripheral.getAccelerationZ() > 9;
-        case 'down':
-            return this._peripheral.getAccelerationZ() < -9;
+        case FaceValues.UP:
+            return this._peripheral.getAccelerationZ() > FACING_THRESHOLD;
+        case FaceValues.DOWN:
+            return this._peripheral.getAccelerationZ() < FACING_THRESHOLD * -1;
         default:
             log.warn(`Unknown direction in isFacing: ${args.FACING}`);
         }
     }
+
     isFreeFalling () {
-        const currentVal = this.magnitude(
-            this._peripheral.getAccelerationX(false),
-            this._peripheral.getAccelerationY(false),
-            this._peripheral.getAccelerationZ(false)
-        );
-        const currentSpinMag = this.magnitude(
-            this._peripheral.getSpinSpeedX(false),
-            this._peripheral.getSpinSpeedY(false),
-            this._peripheral.getSpinSpeedZ(false)
-        );
+        const accelMag = this.accelMagnitude();
+        const spinMag = this.spinMagnitude();
 
         // We want to account for rotation during freefall,
         // so we tack on a an estimated "rotational effect"
@@ -941,14 +786,14 @@ class Scratch3GdxForBlocks {
         // of the gyro measurements and convert them to radians/second.
         // Where 0.3 was determined experimentally
         const spinFactor = 0.3;
+
         // The ffThresh const is what we compare our accel magnitude
         // against to judge if the device is in free fall.
         // The ideal is 0, but 0.5 allows for inevitable noise.
-        const ffThresh = 0.5;
-        let thresh = 0;
-        thresh = ((spinFactor * currentSpinMag) + ffThresh);
+        let ffThresh = FREEFALL_THRESHOLD;
+        ffThresh += (spinFactor * spinMag);
 
-        return currentVal < thresh;
+        return accelMag < ffThresh;
     }
 }
 
