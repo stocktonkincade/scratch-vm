@@ -103,7 +103,40 @@ class GdxFor {
 
         this.disconnect = this.disconnect.bind(this);
         this._onConnect = this._onConnect.bind(this);
+        this._pollMeasurements = this._pollMeasurements.bind(this);
         this._sensorsEnabled = null;
+
+        /**
+         * The polling interval, in milliseconds.
+         * @type {number}
+         * @private
+         */
+        this._pollingInterval = 100;
+
+        /**
+         * The polling interval ID.
+         * @type {number}
+         * @private
+         */
+        this._pollingIntervalID = null;
+
+        this._angularPositionParamsX = {
+            angularPosition: 0,
+            lastSpinSpeed: 0,
+            lastSpinSpeedMsecs: this._runtime.currentMSecs
+        };
+
+        this._angularPositionParamsY = {
+            angularPosition: 0,
+            lastSpinSpeed: 0,
+            lastSpinSpeedMsecs: this._runtime.currentMSecs
+        };
+
+        this._angularPositionParamsZ = {
+            angularPosition: 0,
+            lastSpinSpeed: 0,
+            lastSpinSpeedMsecs: this._runtime.currentMSecs
+        };
     }
 
 
@@ -144,6 +177,9 @@ class GdxFor {
         if (this._scratchLinkSocket) {
             this._scratchLinkSocket.disconnect();
         }
+
+        window.clearInterval(this._pollingIntervalID);
+        this._pollingIntervalID = null;
     }
 
     /**
@@ -169,6 +205,8 @@ class GdxFor {
             this._device.keepValues = false; // todo: possibly remove after updating Vernier godirect module
             this._startMeasurements();
         });
+
+        // this._pollingIntervalID = window.setInterval(this._pollMeasurements, this._pollingInterval);
     }
 
     /**
@@ -183,6 +221,28 @@ class GdxFor {
             this._sensorsEnabled = true;
         });
         this._device.start(10); // Set the period to 10 milliseconds
+    }
+
+    /**
+     * Poll for sensor measurements and store them in member buffers.
+     * This will run as long as the device is connected
+     *
+     * @private
+     */
+    _pollMeasurements () {
+        if (!this._canReadSensors()) {
+            window.clearInterval(this._pollingIntervalID);
+            return;
+        }
+
+        console.log('_pollMeasurements');
+
+        let ix = 1;
+        this._device.sensors.forEach(sensor => {
+            const value = sensor.value;
+            console.log('sensor value: ', value, ix);
+            ix++;
+        });
     }
 
     /**
@@ -240,7 +300,7 @@ class GdxFor {
                 // Compute the x-axis angle
                 value = y / value;
                 value = Math.atan(value);
-                value *= 57.2957795; // convert from rad to deg
+                value = MathUtil.radToDeg(value);
             }
             // Manage the sign of the result
             let xzSign = xSign;
@@ -249,6 +309,62 @@ class GdxFor {
             value *= ySign;
             // Round the result to the nearest degree
             value += 0.5;
+            return value;
+        }
+        return 0;
+    }
+
+    getTiltFrontBack (back = false) {
+        if (this._canReadSensors()) {
+            const x = this.getAccelerationX();
+            const y = this.getAccelerationY();
+            const z = this.getAccelerationZ();
+
+            // Compute the yz unit vector
+            const y2 = y * y;
+            const z2 = z * z;
+            let value = y2 + z2;
+            value = Math.sqrt(value);
+
+            if (value < 0.35) {
+                value = 90;
+            } else {
+                value = x / value;
+                value = Math.atan(value);
+                value = MathUtil.radToDeg(value);
+            }
+
+            // Back is the inverse of the front
+            if (back) value *= -1;
+
+            return value;
+        }
+        return 0;
+    }
+
+    getTiltLeftRight (right = false) {
+        if (this._canReadSensors()) {
+            const x = this.getAccelerationX();
+            const y = this.getAccelerationY();
+            const z = this.getAccelerationZ();
+
+            // Compute the yz unit vector
+            const x2 = x * x;
+            const z2 = z * z;
+            let value = x2 + z2;
+            value = Math.sqrt(value);
+
+            if (value < 0.35) {
+                value = 90;
+            } else {
+                value = y / value;
+                value = Math.atan(value);
+                value = MathUtil.radToDeg(value);
+            }
+
+            // Right is the inverse of the left
+            if (right) value *= -1;
+
             return value;
         }
         return 0;
@@ -290,7 +406,7 @@ class GdxFor {
                 // Compute the x-axis angle
                 value = x / value;
                 value = Math.atan(value);
-                value *= 57.2957795; // convert from rad to deg
+                value = MathUtil.radToDeg(value);
             }
             // Manage the sign of the result
             let yzSign = ySign;
@@ -334,14 +450,72 @@ class GdxFor {
         return this._getSpinSpeed(7);
     }
 
-    _getSpinSpeed (sensorNum) {
+    _getSpinSpeed (sensorNum, perFrame = true) {
         if (!this._canReadSensors()) return 0;
         let val = this._device.getSensor(sensorNum).value;
         val = MathUtil.radToDeg(val);
         const framesPerSec = 1000 / this._runtime.currentStepTime;
-        val = val / framesPerSec; // convert to from degrees per sec to degrees per frame
+        if (perFrame) val = val / framesPerSec; // convert to from degrees per sec to degrees per frame
         val = val * -1;
         return val;
+    }
+
+    getAngularPositionAboutX () {
+        return this._getAngularPositionAboutAxis(5);
+    }
+
+    getAngularPositionAboutY () {
+        return this._getAngularPositionAboutAxis(6);
+    }
+
+    getAngularPositionAboutZ () {
+        return this._getAngularPositionAboutAxis(7);
+    }
+
+    _getAngularPositionAboutAxis (channel) {
+        if (!this._canReadSensors()) return 0;
+
+        let params;
+        const now = this._runtime.currentMSecs;
+        // Get the spinSpeed
+        const spinSpeed = this._getSpinSpeed(channel, false);
+
+        switch (channel) {
+        case 5: {
+            params = this._angularPositionParamsX;
+            break;
+        }
+        case 6: {
+            params = this._angularPositionParamsY;
+            break;
+        }
+        case 7: {
+            params = this._angularPositionParamsZ;
+            break;
+        }
+        default:
+            log.warn(`Unknown channel number for _getYawAngle`);
+            return 0;
+        }
+
+        // We will only add to our integral if we have a unique measurement
+        if (params.lastSpinSpeed !== spinSpeed) {
+            // Get the delta in seconds
+            const deltaT = (now - params.lastSpinSpeedMsecs) / 1000;
+            // Compute the integral and add it to the running integral
+            // Trapezoidal method discrete integral approximation
+            const integral = (spinSpeed + params.lastSpinSpeed) * deltaT / 2.0;
+
+            // eslint-disable-next-line no-console
+            // console.log(integral, spinSpeed, params.lastSpinSpeed, deltaT);
+
+            //  We need to keep track of everything for next round
+            params.angularPosition += integral;
+            params.lastSpinSpeed = spinSpeed;
+            params.lastSpinSpeedMsecs = now;
+        }
+
+        return params.angularPosition;
     }
 }
 
@@ -373,7 +547,11 @@ const GestureValues = {
  */
 const TiltAxisValues = {
     X: 'x',
-    Y: 'y'
+    Y: 'y',
+    LEFT: 'left',
+    RIGHT: 'right',
+    FRONT: 'front',
+    BACK: 'back'
 };
 
 /**
@@ -442,6 +620,22 @@ class Scratch3GdxForBlocks {
             {
                 text: 'y',
                 value: TiltAxisValues.Y
+            },
+            {
+                text: 'front',
+                value: TiltAxisValues.FRONT
+            },
+            {
+                text: 'back',
+                value: TiltAxisValues.BACK
+            },
+            {
+                text: 'left',
+                value: TiltAxisValues.LEFT
+            },
+            {
+                text: 'right',
+                value: TiltAxisValues.RIGHT
             }
         ];
     }
@@ -600,6 +794,22 @@ class Scratch3GdxForBlocks {
                     }
                 },
                 {
+                    opcode: 'getAngularPositionAboutAxis',
+                    text: formatMessage({
+                        id: 'gdxfor.getAngularPositionAboutAxis',
+                        default: 'angular position [DIRECTION]',
+                        description: 'gets angular position about axis'
+                    }),
+                    blockType: BlockType.REPORTER,
+                    arguments: {
+                        DIRECTION: {
+                            type: ArgumentType.STRING,
+                            menu: 'axisOptions',
+                            defaultValue: AxisValues.Z
+                        }
+                    }
+                },
+                {
                     opcode: 'getSpinSpeed',
                     text: formatMessage({
                         id: 'gdxfor.getSpinSpeed',
@@ -704,8 +914,29 @@ class Scratch3GdxForBlocks {
             return Math.round(this._peripheral.getTiltX());
         case TiltAxisValues.Y:
             return Math.round(this._peripheral.getTiltY());
+        case TiltAxisValues.FRONT:
+            return Math.round(this._peripheral.getTiltFrontBack(false));
+        case TiltAxisValues.BACK:
+            return Math.round(this._peripheral.getTiltFrontBack(true));
+        case TiltAxisValues.LEFT:
+            return Math.round(this._peripheral.getTiltLeftRight(false));
+        case TiltAxisValues.RIGHT:
+            return Math.round(this._peripheral.getTiltLeftRight(true));
         default:
             log.warn(`Unknown direction in getTilt: ${args.TILT}`);
+        }
+    }
+
+    getAngularPositionAboutAxis (args) {
+        switch (args.DIRECTION) {
+        case 'x':
+            return Math.round(this._peripheral.getAngularPositionAboutX());
+        case 'y':
+            return Math.round(this._peripheral.getAngularPositionAboutY());
+        case 'z':
+            return Math.round(this._peripheral.getAngularPositionAboutZ());
+        default:
+            log.warn(`Unknown direction in getAngularPositionAboutAxis: ${args.DIRECTION}`);
         }
     }
 
