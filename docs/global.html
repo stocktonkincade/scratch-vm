@@ -7308,7 +7308,11 @@ LOCAL_THRESHOLD to calculate a new direction value.</p>
 
 
 <div class="description">
-    <p>Measurement period used to sample all channels.</p>
+    <p>Measurement period used to sample all channels.
+Note that 40 ms (25 Hz) seems to be the optimal sample period.
+This seems to provide about 12.5 samples/second to the Scratch
+front-end. Faster sampling, actually seems to reduce the throughput
+the the front-end.</p>
 </div>
 
 
