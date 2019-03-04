@@ -3,7 +3,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>Variable - Documentation</title>
+    <title>Scratch3GdxSndBlocks - Documentation</title>
     
     
     <script src="scripts/prettify/prettify.js"></script>
@@ -31,7 +31,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">Variable</h1>
+    <h1 class="page-title">Scratch3GdxSndBlocks</h1>
     
 
     
@@ -44,8 +44,10 @@
 <header>
     
         <h2>
-        Variable
+        Scratch3GdxSndBlocks
         </h2>
+        
+            <div class="class-description"><p>Scratch 3.0 blocks to interact with a GDX-SND peripheral.</p></div>
         
     
 </header>
@@ -57,8 +59,10 @@
             
 
     
+    <h2>Constructor</h2>
+    
 
-    <h4 class="name" id="Variable"><span class="type-signature"></span>new Variable<span class="signature">(id, name, type, isCloud)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="Scratch3GdxSndBlocks"><span class="type-signature"></span>new Scratch3GdxSndBlocks<span class="signature">(runtime)</span><span class="type-signature"></span></h4>
 
     
 
@@ -104,6 +108,10 @@
 
 
 
+<div class="description">
+    <p>Construct a set of GDX-SND blocks.</p>
+</div>
+
 
 
 
@@ -139,13 +147,13 @@
 
         <tr>
             
-                <td class="name"><code>id</code></td>
+                <td class="name"><code>runtime</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">string</span>
+<span class="param-type"><a href="Runtime.html">Runtime</a></span>
 
 
             
@@ -155,76 +163,7 @@
 
             
 
-            <td class="description last"><p>Id of the variable.</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>name</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>Name of the variable.</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>type</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>Type of the variable, one of '' or 'list'</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>isCloud</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">boolean</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>Whether the variable is stored in the cloud.</p></td>
+            <td class="description last"><p>the Scratch 3.0 runtime.</p></td>
         </tr>
 
     
@@ -265,7 +204,115 @@
 
         
             
-<h4 class="name" id=".BROADCAST_MESSAGE_TYPE"><span class="type-signature">(static, constant) </span>BROADCAST_MESSAGE_TYPE<span class="type-signature"> :string</span></h4>
+<h4 class="name" id=".EXTENSION_ID"><span class="type-signature">(static) </span>EXTENSION_ID<span class="type-signature"></span></h4>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+<h4 class="name" id=".EXTENSION_NAME"><span class="type-signature">(static) </span>EXTENSION_NAME<span class="type-signature"></span></h4>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+<h4 class="name" id="runtime"><span class="type-signature"></span>runtime<span class="type-signature"> :<a href="Runtime.html">Runtime</a></span></h4>
 
 
 
@@ -311,7 +358,7 @@
 
 
 <div class="description">
-    <p>Type representation for list variables.</p>
+    <p>The Scratch 3.0 runtime.</p>
 </div>
 
 
@@ -320,7 +367,7 @@
     <ul>
         <li>
             
-<span class="param-type">string</span>
+<span class="param-type"><a href="Runtime.html">Runtime</a></span>
 
 
         </li>
@@ -332,9 +379,19 @@
 
 
         
-            
-<h4 class="name" id=".LIST_TYPE"><span class="type-signature">(static, constant) </span>LIST_TYPE<span class="type-signature"> :string</span></h4>
+    
 
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            
+
+    
+
+    <h4 class="name" id="getInfo"><span class="type-signature"></span>getInfo<span class="signature">()</span><span class="type-signature"> &rarr; {object}</span></h4>
+
+    
 
 
 
@@ -378,100 +435,53 @@
 
 
 
-<div class="description">
-    <p>Type representation for list variables.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    <p>metadata for this extension and its blocks.</p>
 </div>
 
 
 
-    <h5>Type:</h5>
-    <ul>
-        <li>
-            
-<span class="param-type">string</span>
-
-
-        </li>
-    </ul>
-
-
-
-
-
-
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
         
-            
-<h4 class="name" id=".SCALAR_TYPE"><span class="type-signature">(static, constant) </span>SCALAR_TYPE<span class="type-signature"> :string</span></h4>
+<span class="param-type">object</span>
 
 
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
+    </dd>
 </dl>
 
-
-
-
-
-<div class="description">
-    <p>Type representation for scalar variables.
-This is currently represented as ''
-for compatibility with blockly.</p>
-</div>
-
-
-
-    <h5>Type:</h5>
-    <ul>
-        <li>
-            
-<span class="param-type">string</span>
-
-
-        </li>
-    </ul>
-
-
-
-
+    
 
 
         
-    
-
     
 
     
