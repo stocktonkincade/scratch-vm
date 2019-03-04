@@ -26,6 +26,29 @@ const BLEUUID = {
 };
 
 /**
+ * Sensor ID numbers for the GDX-FOR.
+ */
+const GDXFOR_SENSOR = {
+    FORCE: 1,
+    ACCELERATION_X: 2,
+    ACCELERATION_Y: 3,
+    ACCELERATION_Z: 4,
+    SPIN_SPEED_X: 5,
+    SPIN_SPEED_Y: 6,
+    SPIN_SPEED_Z: 7
+};
+
+/**
+ * Measurement period used to sample all channels.
+ * Note that 40 ms (25 Hz) seems to be the optimal sample period.
+ * This seems to provide about 12.5 samples/second to the Scratch
+ * front-end. Faster sampling, actually seems to reduce the throughput
+ * the the front-end.
+ * @type {number}
+ */
+const MEASUREMENT_PERIOD = 40;
+
+/**
  * Threshold for pushing and pulling force, for the whenForcePushedOrPulled hat block.
  * @type {number}
  */
@@ -54,6 +77,12 @@ const FACING_THRESHOLD = 9;
  * @type {number}
  */
 const FREEFALL_THRESHOLD = 0.5;
+
+/**
+ * Factor used to account for influence of rotation during freefall.
+ * @type {number}
+ */
+const FREEFALL_ROTATION_FACTOR = 0.3;
 
 /**
  * Acceleration due to gravity, in m/s^2.
@@ -101,42 +130,32 @@ class GdxFor {
          */
         this._extensionId = extensionId;
 
+        /**
+         * The most recently received value for each sensor.
+         * @type {Object.<string, number>}
+         * @private
+         */
+        this._sensors = {
+            force: 0,
+            accelerationX: 0,
+            accelerationY: 0,
+            accelerationZ: 0,
+            spinSpeedX: 0,
+            spinSpeedY: 0,
+            spinSpeedZ: 0,
+            angularPositionX: 0,
+            lastSpinSpeedX: 0,
+            spinSpeedCountX: 0,
+            angularPositionY: 0,
+            lastSpinSpeedY: 0,
+            spinSpeedCountY: 0,
+            angularPositionZ: 0,
+            lastSpinSpeedZ: 0,
+            spinSpeedCountZ: 0
+        };
+
         this.disconnect = this.disconnect.bind(this);
         this._onConnect = this._onConnect.bind(this);
-        this._pollMeasurements = this._pollMeasurements.bind(this);
-        this._sensorsEnabled = null;
-
-        /**
-         * The polling interval, in milliseconds.
-         * @type {number}
-         * @private
-         */
-        this._pollingInterval = 100;
-
-        /**
-         * The polling interval ID.
-         * @type {number}
-         * @private
-         */
-        this._pollingIntervalID = null;
-
-        this._angularPositionParamsX = {
-            angularPosition: 0,
-            lastSpinSpeed: 0,
-            lastSpinSpeedMsecs: this._runtime.currentMSecs
-        };
-
-        this._angularPositionParamsY = {
-            angularPosition: 0,
-            lastSpinSpeed: 0,
-            lastSpinSpeedMsecs: this._runtime.currentMSecs
-        };
-
-        this._angularPositionParamsZ = {
-            angularPosition: 0,
-            lastSpinSpeed: 0,
-            lastSpinSpeedMsecs: this._runtime.currentMSecs
-        };
     }
 
 
@@ -173,13 +192,27 @@ class GdxFor {
      * Disconnect from the GDX FOR.
      */
     disconnect () {
-        this._sensorsEnabled = false;
+        this._sensors = {
+            force: 0,
+            accelerationX: 0,
+            accelerationY: 0,
+            accelerationZ: 0,
+            spinSpeedX: 0,
+            spinSpeedY: 0,
+            spinSpeedZ: 0,
+            angularPositionX: 0,
+            lastSpinSpeedX: 0,
+            spinSpeedCountX: 0,
+            angularPositionY: 0,
+            lastSpinSpeedY: 0,
+            spinSpeedCountY: 0,
+            angularPositionZ: 0,
+            lastSpinSpeedZ: 0,
+            spinSpeedCountZ: 0
+        };
         if (this._scratchLinkSocket) {
             this._scratchLinkSocket.disconnect();
         }
-
-        window.clearInterval(this._pollingIntervalID);
-        this._pollingIntervalID = null;
     }
 
     /**
@@ -201,321 +234,236 @@ class GdxFor {
     _onConnect () {
         const adapter = new ScratchLinkDeviceAdapter(this._scratchLinkSocket, BLEUUID);
         godirect.createDevice(adapter, {open: true, startMeasurements: false}).then(device => {
+            // Setup device
             this._device = device;
             this._device.keepValues = false; // todo: possibly remove after updating Vernier godirect module
-            this._startMeasurements();
-        });
 
-        // this._pollingIntervalID = window.setInterval(this._pollMeasurements, this._pollingInterval);
+            // Enable sensors
+            this._device.sensors.forEach(sensor => {
+                sensor.setEnabled(true);
+            });
+
+            // Set sensor value-update behavior
+            this._device.on('measurements-started', () => {
+                const enabledSensors = this._device.sensors.filter(s => s.enabled);
+                enabledSensors.forEach(sensor => {
+                    sensor.on('value-changed', s => {
+                        this._onSensorValueChanged(s);
+                    });
+                });
+            });
+
+            // Start device
+            this._device.start(MEASUREMENT_PERIOD);
+        });
     }
 
     /**
-     * Enable and begin reading measurements
+     * For X axis: Computes angular position from latest and previous
+     * spin speed and expected time delta. Also converts and sets the spinSpeed.
+     * @param {number} spinSpeed - the latest spin speed
      * @private
      */
-    _startMeasurements () {
-        this._device.sensors.forEach(sensor => {
-            sensor.setEnabled(true);
-        });
-        this._device.on('measurements-started', () => {
-            this._sensorsEnabled = true;
-        });
-        this._device.start(10); // Set the period to 10 milliseconds
+    _onSpinSpeedValueChangedX (spinSpeed = 0) {
+        // Compute the integral and add it to the running integral.
+        // We do everything in radians/second until we store the results for the user.
+        // Trapezoidal method discrete integral approximation
+        const integral = (spinSpeed + this._sensors.lastSpinSpeedX) * MEASUREMENT_PERIOD / 2000;
+
+        //  We need to keep track of everything for next round
+        this._sensors.lastSpinSpeedX = spinSpeed;
+
+        // Units of degrees
+        this._sensors.angularPositionX += MathUtil.radToDeg(integral);
+
+        // We keep user facing spin speed in degrees/frame, rather than radians/second
+        this._sensors.spinSpeedX = this._spinSpeedFromGyro(spinSpeed);
     }
 
     /**
-     * Poll for sensor measurements and store them in member buffers.
-     * This will run as long as the device is connected
-     *
+     * For Y axis: Computes angular position from latest and previous
+     * spin speed and expected time delta. Also converts and sets the spinSpeed.
+     * @param {number} spinSpeed - the latest spin speed
      * @private
      */
-    _pollMeasurements () {
-        if (!this._canReadSensors()) {
-            window.clearInterval(this._pollingIntervalID);
-            return;
+    _onSpinSpeedValueChangedY (spinSpeed = 0) {
+        // Compute the integral and add it to the running integral.
+        // We do everything in radians/second until we store the results for the user.
+        // Trapezoidal method discrete integral approximation
+        const integral = (spinSpeed + this._sensors.lastSpinSpeedY) * MEASUREMENT_PERIOD / 2000;
+
+        //  We need to keep track of everything for next round
+        this._sensors.lastSpinSpeedY = spinSpeed;
+
+        // Units of degrees
+        this._sensors.angularPositionY += MathUtil.radToDeg(integral);
+
+        // We keep user facing spin speed in degrees/frame, rather than radians/second
+        this._sensors.spinSpeedY = this._spinSpeedFromGyro(spinSpeed);
+    }
+
+    /**
+     * For Z axis: Computes angular position from latest and previous
+     * spin speed and expected time delta. Also converts and sets the spinSpeed.
+     * @param {number} spinSpeed - the latest spin speed
+     * @private
+     */
+    _onSpinSpeedValueChangedZ (spinSpeed = 0) {
+        // Compute the integral and add it to the running integral.
+        // We do everything in radians/second until we store the results for the user.
+        // Trapezoidal method discrete integral approximation
+        const integral = (spinSpeed + this._sensors.lastSpinSpeedZ) * MEASUREMENT_PERIOD / 2000;
+
+        //  We need to keep track of everything for next round
+        this._sensors.lastSpinSpeedZ = spinSpeed;
+
+        // Units of degrees
+        this._sensors.angularPositionZ += MathUtil.radToDeg(integral);
+
+        // We keep user facing spin speed in degrees/frame, rather than radians/second
+        this._sensors.spinSpeedZ = this._spinSpeedFromGyro(spinSpeed);
+    }
+
+    /**
+     * Handler for sensor value changes from the goforce device.
+     * @param {object} sensor - goforce device sensor whose value has changed
+     * @private
+     */
+    _onSensorValueChanged (sensor) {
+        switch (sensor.number) {
+        case GDXFOR_SENSOR.FORCE:
+            // Normalize the force, which can be measured between -50 and 50 N,
+            // to be a value between -100 and 100.
+            this._sensors.force = MathUtil.clamp(sensor.value * 2, -100, 100);
+            break;
+        case GDXFOR_SENSOR.ACCELERATION_X:
+            this._sensors.accelerationX = sensor.value;
+            break;
+        case GDXFOR_SENSOR.ACCELERATION_Y:
+            this._sensors.accelerationY = sensor.value;
+            break;
+        case GDXFOR_SENSOR.ACCELERATION_Z:
+            this._sensors.accelerationZ = sensor.value;
+            break;
+        case GDXFOR_SENSOR.SPIN_SPEED_X:
+            // The direction of the spin works better in Scratch as the inverse
+            this._onSpinSpeedValueChangedX(sensor.value * -1);
+            break;
+        case GDXFOR_SENSOR.SPIN_SPEED_Y:
+            // The direction of the spin works better in Scratch as the inverse
+            this._onSpinSpeedValueChangedY(sensor.value * -1);
+            break;
+        case GDXFOR_SENSOR.SPIN_SPEED_Z:
+            // The direction of the spin works better in Scratch as the inverse
+            this._onSpinSpeedValueChangedZ(sensor.value * -1);
+            break;
         }
-
-        console.log('_pollMeasurements');
-
-        let ix = 1;
-        this._device.sensors.forEach(sensor => {
-            const value = sensor.value;
-            console.log('sensor value: ', value, ix);
-            ix++;
-        });
     }
 
-    /**
-     * Device is connected and measurements enabled
-     * @return {boolean} - whether the goforce is connected and measurements started.
-     */
-    _canReadSensors () {
-        return this.isConnected() && this._sensorsEnabled;
+    _spinSpeedFromGyro (val) {
+        // const framesPerSec = 1000 / this._runtime.currentStepTime;
+        // val = MathUtil.radToDeg(val);
+        // val = val / framesPerSec; // convert to from degrees per sec to degrees per frame
+        // val = val * -1;
+        return val;
     }
 
     getForce () {
-        if (this._canReadSensors()) {
-            let force = this._device.getSensor(1).value;
-            // Normalize the force, which can be measured between -50 and 50 N,
-            // to be a value between -100 and 100.
-            force = MathUtil.clamp(force * 2, -100, 100);
-            return force;
-        }
-        return 0;
-    }
-
-    getTiltX () {
-        if (this._canReadSensors()) {
-            let x = this.getAccelerationX();
-            let y = this.getAccelerationY();
-            let z = this.getAccelerationZ();
-
-            let xSign = 1;
-            let ySign = 1;
-            let zSign = 1;
-
-            if (x < 0.0) {
-                x *= -1.0; xSign = -1;
-            }
-            if (y < 0.0) {
-                y *= -1.0; ySign = -1;
-            }
-            if (z < 0.0) {
-                z *= -1.0; zSign = -1;
-            }
-
-            // Compute the yz unit vector
-            const z2 = z * z;
-            const x2 = x * x;
-            let value = z2 + x2;
-            value = Math.sqrt(value);
-
-            // For sufficiently small zy vector values we are essentially at 90 degrees.
-            // The following snaps to 90 and avoids divide-by-zero errors.
-            // The snap factor was derived through observation -- just enough to
-            // still allow single degree steps up to 90 (..., 87, 88, 89, 90).
-            if (value < 0.35) {
-                value = 90;
-            } else {
-                // Compute the x-axis angle
-                value = y / value;
-                value = Math.atan(value);
-                value = MathUtil.radToDeg(value);
-            }
-            // Manage the sign of the result
-            let xzSign = xSign;
-            if (z > x) xzSign = zSign;
-            if (xzSign === -1) value = 180.0 - value;
-            value *= ySign;
-            // Round the result to the nearest degree
-            value += 0.5;
-            return value;
-        }
-        return 0;
+        return this._sensors.force;
     }
 
     getTiltFrontBack (back = false) {
-        if (this._canReadSensors()) {
-            const x = this.getAccelerationX();
-            const y = this.getAccelerationY();
-            const z = this.getAccelerationZ();
+        const x = this.getAccelerationX();
+        const y = this.getAccelerationY();
+        const z = this.getAccelerationZ();
 
-            // Compute the yz unit vector
-            const y2 = y * y;
-            const z2 = z * z;
-            let value = y2 + z2;
-            value = Math.sqrt(value);
+        // Compute the yz unit vector
+        const y2 = y * y;
+        const z2 = z * z;
+        let value = y2 + z2;
+        value = Math.sqrt(value);
 
-            if (value < 0.35) {
-                value = 90;
-            } else {
-                value = x / value;
-                value = Math.atan(value);
-                value = MathUtil.radToDeg(value);
-            }
-
-            // Back is the inverse of the front
-            if (back) value *= -1;
-
-            return value;
+        // For sufficiently small zy vector values we are essentially at 90 degrees.
+        // The following snaps to 90 and avoids divide-by-zero errors.
+        // The snap factor was derived through observation -- just enough to
+        // still allow single degree steps up to 90 (..., 87, 88, 89, 90).
+        if (value < 0.35) {
+            value = (x < 0) ? 90 : -90;
+        } else {
+            value = x / value;
+            value = Math.atan(value);
+            value = MathUtil.radToDeg(value) * -1;
         }
-        return 0;
+
+        // Back is the inverse of front
+        if (back) value *= -1;
+
+        return value;
     }
 
     getTiltLeftRight (right = false) {
-        if (this._canReadSensors()) {
-            const x = this.getAccelerationX();
-            const y = this.getAccelerationY();
-            const z = this.getAccelerationZ();
+        const x = this.getAccelerationX();
+        const y = this.getAccelerationY();
+        const z = this.getAccelerationZ();
 
-            // Compute the yz unit vector
-            const x2 = x * x;
-            const z2 = z * z;
-            let value = x2 + z2;
-            value = Math.sqrt(value);
+        // Compute the yz unit vector
+        const x2 = x * x;
+        const z2 = z * z;
+        let value = x2 + z2;
+        value = Math.sqrt(value);
 
-            if (value < 0.35) {
-                value = 90;
-            } else {
-                value = y / value;
-                value = Math.atan(value);
-                value = MathUtil.radToDeg(value);
-            }
-
-            // Right is the inverse of the left
-            if (right) value *= -1;
-
-            return value;
+        // For sufficiently small zy vector values we are essentially at 90 degrees.
+        // The following snaps to 90 and avoids divide-by-zero errors.
+        // The snap factor was derived through observation -- just enough to
+        // still allow single degree steps up to 90 (..., 87, 88, 89, 90).
+        if (value < 0.35) {
+            value = (y < 0) ? 90 : -90;
+        } else {
+            value = y / value;
+            value = Math.atan(value);
+            value = MathUtil.radToDeg(value) * -1;
         }
-        return 0;
-    }
 
-    getTiltY () {
-        if (this._canReadSensors()) {
-            let x = this.getAccelerationX();
-            let y = this.getAccelerationY();
-            let z = this.getAccelerationZ();
+        // Right is the inverse of left
+        if (right) value *= -1;
 
-            let xSign = 1;
-            let ySign = 1;
-            let zSign = 1;
-
-            if (x < 0.0) {
-                x *= -1.0; xSign = -1;
-            }
-            if (y < 0.0) {
-                y *= -1.0; ySign = -1;
-            }
-            if (z < 0.0) {
-                z *= -1.0; zSign = -1;
-            }
-
-            // Compute the yz unit vector
-            const z2 = z * z;
-            const y2 = y * y;
-            let value = z2 + y2;
-            value = Math.sqrt(value);
-
-            // For sufficiently small zy vector values we are essentially at 90 degrees.
-            // The following snaps to 90 and avoids divide-by-zero errors.
-            // The snap factor was derived through observation -- just enough to
-            // still allow single degree steps up to 90 (..., 87, 88, 89, 90).
-            if (value < 0.35) {
-                value = 90;
-            } else {
-                // Compute the x-axis angle
-                value = x / value;
-                value = Math.atan(value);
-                value = MathUtil.radToDeg(value);
-            }
-            // Manage the sign of the result
-            let yzSign = ySign;
-            if (z > y) yzSign = zSign;
-            if (yzSign === -1) value = 180.0 - value;
-            value *= xSign;
-            // Round the result to the nearest degree
-            value += 0.5;
-            return value;
-        }
-        return 0;
+        return value;
     }
 
     getAccelerationX () {
-        return this._getAcceleration(2);
+        return this._sensors.accelerationX;
     }
 
     getAccelerationY () {
-        return this._getAcceleration(3);
+        return this._sensors.accelerationY;
     }
 
     getAccelerationZ () {
-        return this._getAcceleration(4);
-    }
-
-    _getAcceleration (sensorNum) {
-        if (!this._canReadSensors()) return 0;
-        const val = this._device.getSensor(sensorNum).value;
-        return val;
+        return this._sensors.accelerationZ;
     }
 
     getSpinSpeedX () {
-        return this._getSpinSpeed(5);
+        return this._sensors.spinSpeedX;
     }
 
     getSpinSpeedY () {
-        return this._getSpinSpeed(6);
+        return this._sensors.spinSpeedY;
     }
 
     getSpinSpeedZ () {
-        return this._getSpinSpeed(7);
+        return this._sensors.spinSpeedZ;
     }
 
-    _getSpinSpeed (sensorNum, perFrame = true) {
-        if (!this._canReadSensors()) return 0;
-        let val = this._device.getSensor(sensorNum).value;
-        val = MathUtil.radToDeg(val);
-        const framesPerSec = 1000 / this._runtime.currentStepTime;
-        if (perFrame) val = val / framesPerSec; // convert to from degrees per sec to degrees per frame
-        val = val * -1;
-        return val;
+    getAngularPositionX () {
+        return this._sensors.angularPositionX;
     }
 
-    getAngularPositionAboutX () {
-        return this._getAngularPositionAboutAxis(5);
+    getAngularPositionY () {
+        return this._sensors.angularPositionY;
     }
 
-    getAngularPositionAboutY () {
-        return this._getAngularPositionAboutAxis(6);
-    }
-
-    getAngularPositionAboutZ () {
-        return this._getAngularPositionAboutAxis(7);
-    }
-
-    _getAngularPositionAboutAxis (channel) {
-        if (!this._canReadSensors()) return 0;
-
-        let params;
-        const now = this._runtime.currentMSecs;
-        // Get the spinSpeed
-        const spinSpeed = this._getSpinSpeed(channel, false);
-
-        switch (channel) {
-        case 5: {
-            params = this._angularPositionParamsX;
-            break;
-        }
-        case 6: {
-            params = this._angularPositionParamsY;
-            break;
-        }
-        case 7: {
-            params = this._angularPositionParamsZ;
-            break;
-        }
-        default:
-            log.warn(`Unknown channel number for _getYawAngle`);
-            return 0;
-        }
-
-        // We will only add to our integral if we have a unique measurement
-        if (params.lastSpinSpeed !== spinSpeed) {
-            // Get the delta in seconds
-            const deltaT = (now - params.lastSpinSpeedMsecs) / 1000;
-            // Compute the integral and add it to the running integral
-            // Trapezoidal method discrete integral approximation
-            const integral = (spinSpeed + params.lastSpinSpeed) * deltaT / 2.0;
-
-            // eslint-disable-next-line no-console
-            // console.log(integral, spinSpeed, params.lastSpinSpeed, deltaT);
-
-            //  We need to keep track of everything for next round
-            params.angularPosition += integral;
-            params.lastSpinSpeed = spinSpeed;
-            params.lastSpinSpeedMsecs = now;
-        }
-
-        return params.angularPosition;
+    getAngularPositionZ () {
+        return this._sensors.angularPositionZ;
     }
 }
 
@@ -546,12 +494,20 @@ const GestureValues = {
  * @enum {string}
  */
 const TiltAxisValues = {
-    X: 'x',
-    Y: 'y',
-    LEFT: 'left',
-    RIGHT: 'right',
     FRONT: 'front',
-    BACK: 'back'
+    BACK: 'back',
+    LEFT: 'left',
+    RIGHT: 'right'
+};
+
+/**
+ * Enum for spin type menu options.
+ * @readonly
+ * @enum {string}
+ */
+const SpinTypeValues = {
+    SPEED: 'speed',
+    ANGLE: 'angle'
 };
 
 /**
@@ -614,27 +570,35 @@ class Scratch3GdxForBlocks {
     get TILT_MENU () {
         return [
             {
-                text: 'x',
-                value: TiltAxisValues.X
-            },
-            {
-                text: 'y',
-                value: TiltAxisValues.Y
-            },
-            {
-                text: 'front',
+                text: formatMessage({
+                    id: 'gdxfor.tiltDirectionMenu.front',
+                    default: 'front',
+                    description: 'label for front element in tilt direction picker for gdxfor extension'
+                }),
                 value: TiltAxisValues.FRONT
             },
             {
-                text: 'back',
+                text: formatMessage({
+                    id: 'gdxfor.tiltDirectionMenu.back',
+                    default: 'back',
+                    description: 'label for back element in tilt direction picker for gdxfor extension'
+                }),
                 value: TiltAxisValues.BACK
             },
             {
-                text: 'left',
+                text: formatMessage({
+                    id: 'gdxfor.tiltDirectionMenu.left',
+                    default: 'left',
+                    description: 'label for left element in tilt direction picker for gdxfor extension'
+                }),
                 value: TiltAxisValues.LEFT
             },
             {
-                text: 'right',
+                text: formatMessage({
+                    id: 'gdxfor.tiltDirectionMenu.right',
+                    default: 'right',
+                    description: 'label for right element in tilt direction picker for gdxfor extension'
+                }),
                 value: TiltAxisValues.RIGHT
             }
         ];
@@ -707,6 +671,27 @@ class Scratch3GdxForBlocks {
                     description: 'the sensor started free falling'
                 }),
                 value: GestureValues.STARTED_FALLING
+            }
+        ];
+    }
+
+    get SPIN_TYPE_MENU () {
+        return [
+            {
+                text: formatMessage({
+                    id: 'gdxfor.spinSeep',
+                    default: 'speed',
+                    description: 'the speed of rotation around the axis'
+                }),
+                value: SpinTypeValues.SPEED
+            },
+            {
+                text: formatMessage({
+                    id: 'gdxfor.spinAngle',
+                    default: 'angle',
+                    description: 'the angle of rotation around the axis'
+                }),
+                value: SpinTypeValues.ANGLE
             }
         ];
     }
@@ -789,35 +774,24 @@ class Scratch3GdxForBlocks {
                         TILT: {
                             type: ArgumentType.STRING,
                             menu: 'tiltOptions',
-                            defaultValue: TiltAxisValues.X
+                            defaultValue: TiltAxisValues.FRONT
                         }
                     }
                 },
                 {
-                    opcode: 'getAngularPositionAboutAxis',
+                    opcode: 'getSpinSpeedOrAngle',
                     text: formatMessage({
-                        id: 'gdxfor.getAngularPositionAboutAxis',
-                        default: 'angular position [DIRECTION]',
-                        description: 'gets angular position about axis'
+                        id: 'gdxfor.getSpinSpeedOrAngle',
+                        default: 'spin [SPIN_TYPE] for [DIRECTION]',
+                        description: 'gets spin speed or angle'
                     }),
                     blockType: BlockType.REPORTER,
                     arguments: {
-                        DIRECTION: {
+                        SPIN_TYPE: {
                             type: ArgumentType.STRING,
-                            menu: 'axisOptions',
-                            defaultValue: AxisValues.Z
-                        }
-                    }
-                },
-                {
-                    opcode: 'getSpinSpeed',
-                    text: formatMessage({
-                        id: 'gdxfor.getSpinSpeed',
-                        default: 'spin speed [DIRECTION]',
-                        description: 'gets spin speed'
-                    }),
-                    blockType: BlockType.REPORTER,
-                    arguments: {
+                            menu: 'spinTypeOptions',
+                            defaultValue: SpinTypeValues.SPEED
+                        },
                         DIRECTION: {
                             type: ArgumentType.STRING,
                             menu: 'axisOptions',
@@ -873,7 +847,8 @@ class Scratch3GdxForBlocks {
                 gestureOptions: this.GESTURE_MENU,
                 axisOptions: this.AXIS_MENU,
                 tiltOptions: this.TILT_MENU,
-                faceOptions: this.FACE_MENU
+                faceOptions: this.FACE_MENU,
+                spinTypeOptions: this.SPIN_TYPE_MENU
             }
         };
     }
@@ -910,10 +885,6 @@ class Scratch3GdxForBlocks {
 
     getTilt (args) {
         switch (args.TILT) {
-        case TiltAxisValues.X:
-            return Math.round(this._peripheral.getTiltX());
-        case TiltAxisValues.Y:
-            return Math.round(this._peripheral.getTiltY());
         case TiltAxisValues.FRONT:
             return Math.round(this._peripheral.getTiltFrontBack(false));
         case TiltAxisValues.BACK:
@@ -927,19 +898,6 @@ class Scratch3GdxForBlocks {
         }
     }
 
-    getAngularPositionAboutAxis (args) {
-        switch (args.DIRECTION) {
-        case 'x':
-            return Math.round(this._peripheral.getAngularPositionAboutX());
-        case 'y':
-            return Math.round(this._peripheral.getAngularPositionAboutY());
-        case 'z':
-            return Math.round(this._peripheral.getAngularPositionAboutZ());
-        default:
-            log.warn(`Unknown direction in getAngularPositionAboutAxis: ${args.DIRECTION}`);
-        }
-    }
-
     getSpinSpeed (args) {
         switch (args.DIRECTION) {
         case AxisValues.X:
@@ -950,6 +908,30 @@ class Scratch3GdxForBlocks {
             return Math.round(this._peripheral.getSpinSpeedZ());
         default:
             log.warn(`Unknown direction in getSpinSpeed: ${args.DIRECTION}`);
+        }
+    }
+
+    getAngularPosition (args) {
+        switch (args.DIRECTION) {
+        case AxisValues.X:
+            return Math.round(this._peripheral.getAngularPositionX());
+        case AxisValues.Y:
+            return Math.round(this._peripheral.getAngularPositionY());
+        case AxisValues.Z:
+            return Math.round(this._peripheral.getAngularPositionZ());
+        default:
+            log.warn(`Unknown direction in getAngularPosition: ${args.DIRECTION}`);
+        }
+    }
+
+    getSpinSpeedOrAngle (args) {
+        switch (args.SPIN_TYPE) {
+        case SpinTypeValues.SPEED:
+            return this.getSpinSpeed(args);
+        case SpinTypeValues.ANGLE:
+            return this.getAngularPosition(args);
+        default:
+            log.warn(`Unknown type in getSpinSpeedOrAngle: ${args.SPIN_TYPE}`);
         }
     }
 
@@ -984,16 +966,16 @@ class Scratch3GdxForBlocks {
         );
     }
 
+    gestureMagnitude () {
+        return this.accelMagnitude() - GRAVITY;
+    }
+
     spinMagnitude () {
         return this.magnitude(
             this._peripheral.getSpinSpeedX(),
             this._peripheral.getSpinSpeedY(),
             this._peripheral.getSpinSpeedZ()
         );
-    }
-
-    gestureMagnitude () {
-        return this.accelMagnitude() - GRAVITY;
     }
 
     isFacing (args) {
@@ -1013,16 +995,11 @@ class Scratch3GdxForBlocks {
 
         // We want to account for rotation during freefall,
         // so we tack on a an estimated "rotational effect"
-        // The spinFactor const is used to both scale the magnitude
-        // of the gyro measurements and convert them to radians/second.
-        // Where 0.3 was determined experimentally
-        const spinFactor = 0.3;
-
-        // The ffThresh const is what we compare our accel magnitude
-        // against to judge if the device is in free fall.
-        // The ideal is 0, but 0.5 allows for inevitable noise.
-        let ffThresh = FREEFALL_THRESHOLD;
-        ffThresh += (spinFactor * spinMag);
+        // The FREEFALL_ROTATION_FACTOR const is used to both scale the
+        // gyro measurements and convert them to radians/second.
+        // So, we compare our accel magnitude against:
+        // FREEFALL_THRESHOLD + (some_scaled_magnitude_of_rotation).
+        const ffThresh = FREEFALL_THRESHOLD + (FREEFALL_ROTATION_FACTOR * spinMag);
 
         return accelMag < ffThresh;
     }
